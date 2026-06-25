@@ -29,20 +29,28 @@ runs:
 
     - name: Install Sagrada Linter
       shell: bash
-      run: pipx install sagrada-linter || pip install --user sagrada-linter
+      # Install from the Action's OWN pinned code ($GITHUB_ACTION_PATH), not live PyPI —
+      # the version you get is exactly the action ref you pinned (no supply-chain substitution).
+      run: pip install "$GITHUB_ACTION_PATH"
 
     - name: Scan rule-file history for zombie prompts
       id: scan
       shell: bash
+      env:
+        # Passed as an ordinary shell variable (NOT substituted into the command text by GitHub),
+        # so its contents are treated as literal words — no command injection.
+        SAGRADA_PATHS: ${{ inputs.paths }}
       run: |
-        set +e
-        # One call: write receipts (stderr keeps stdout clean), print the PR comment
-        # to a file, and exit non-zero on a zombie. The comment only ever contains the
-        # DETERMINISTIC retract->re-add events — amber never reaches a reviewer's PR.
-        sagrada-linter scan-history ${{ inputs.paths }} \
+        set +e          # the scan is allowed to exit non-zero on a zombie
+        set -f          # disable globbing when $SAGRADA_PATHS word-splits
+        # One call: write receipts (stderr keeps stdout clean), print the PR comment to a
+        # file, and exit non-zero on a zombie. The comment only ever contains DETERMINISTIC
+        # retract->re-add events — amber never reaches a reviewer's PR.
+        sagrada-linter scan-history $SAGRADA_PATHS \
           --receipt --receipt-dir "$RUNNER_TEMP/sagrada-receipts" \
           --github-comment --strict > "$RUNNER_TEMP/sagrada-comment.md"
-        echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        code=$?
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
         echo "----- sagrada comment -----"
         cat "$RUNNER_TEMP/sagrada-comment.md"
 

@@ -1,19 +1,7 @@
-"""The deterministic conflict predicate — the load-bearing core of the preflight gate.
-
-This is the ONE piece of logic that both the producer (`decision.py`, which runs it
-against the live belief-state from the engine) and the independent verifier
-(`verifier.py`, which re-runs it against the snapshot recorded *in the receipt*) must
-compute identically. It is therefore pure: **stdlib only, no engine, no network, no
-clock, no randomness.** A stranger's offline verifier imports exactly this module (or a
-byte-equivalent re-implementation) and nothing else from us.
-
-A TypedBelief is a CONSTRAINT on an entity ("deploy.target must equal staging",
-"lib:boto3 is banned", "dep:numpy must satisfy >=2.0"). A ProposedAction asserts facts
-about entities (it deploys to production, it imports boto3, it installs numpy 1.26).
-A HALT fires iff a proposed assertion violates a CURRENT, ACTIVE, DETERMINISTIC belief.
-
-Fence (non-negotiable #1): a belief with ``source_kind == "nl_extracted"`` is ADVISORY
-and NEVER gates a halt. Only ``deterministic`` (typed) beliefs are ``halt_eligible``.
+"""Deterministic conflict predicate: decide ALLOW or HALT from a set of typed rules and a
+proposed action. Pure stdlib — no network, no clock, no randomness — so any offline
+verifier recomputes the identical verdict. A rule is one of equals / excludes / satisfies
+on an entity; only active, deterministic rules can gate a HALT (advisory rules never do).
 """
 from __future__ import annotations
 

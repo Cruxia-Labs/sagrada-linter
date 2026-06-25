@@ -1,26 +1,6 @@
-"""Diff-native ingest core — "ingest changes, not states."
-
-Pure, deterministic, dependency-light (stdlib ``difflib`` only — no engine, no
-battery, no torch, no network). Given two versions of a text, emit a stream of
-``Change`` events (the revision *deltas*) instead of re-extracting the whole
-snapshot. The git diff already pairs a belief's before/after positionally; this
-module turns that pairing into typed ``Change``s the operator maps to AGM ops:
-
-    add    -> assert         (a new belief)
-    change -> revise/refine  (a supersession, with before/after LINKED)
-    remove -> retract        (abandonment — the contraction the floor battery missed)
-
-Why this exists (`docs/DIFF_NATIVE_INGEST_PLAN.md`): the state-based adapter
-re-extracts every version and re-links a change's before/after by *term match*,
-which fails when the noisy extractor names them differently (flip recorded as
-assert-new, not revise) and records nothing when a claim is deleted. The diff
-carries the link the flat document loses. This is the determinism boundary
-applied recursively: maximize the deterministic substrate (the diff) and bring
-the perception battery only to the irreducible residue.
-
-The perception step (the extractor) is a pluggable callback so this logic is
-testable in isolation and reusable across adapters (code/config/chat-edit/agent
-streams all have deltas — the ``Change`` is the universal adapter interface).
+"""Diff two versions of a rule file and emit the claim-level Change stream (add / change /
+remove). Pure stdlib (difflib) — the deterministic floor under the scanner; no model, no
+network. A `change` carries the before/after pairing the flat document loses.
 """
 from __future__ import annotations
 
@@ -37,7 +17,7 @@ Extractor = Callable[[str], Optional[Claim]]
 # Minimum token-Jaccard overlap to pair two term-mismatched lines as one rewrite
 # (pass 2). Above it: a rescued rename (nix_config -> toml_config). Below it: an
 # unrelated removal + addition that merely shared a replace hunk. A deterministic
-# relatedness gate — the battery is the upgrade for borderline pairs.
+# relatedness gate — the extractor is the upgrade for borderline pairs.
 PAIR_SIM_THRESHOLD = 0.4
 
 # Cross-hunk move/reword reconciliation is more speculative than in-hunk pairing
@@ -49,11 +29,11 @@ CROSS_HUNK_SIM_THRESHOLD = 0.5
 class Change:
     """One revision event located by the diff.
 
-    ``kind`` is the delta type; the operator-wiring layer maps it to an AGM op.
+    ``kind`` is the delta type; the downstream layer maps it to an revision op.
     For ``change`` whose ``old_claim`` and ``new_claim`` carry *different* terms,
     the diff has paired a rewrite the term-matcher would have missed — anchor the
     belief's identity on the OLD term and let the classifier confirm revise vs.
-    two-independent-ops (the diff localizes; the battery judges the residue).
+    two-independent-ops (the diff localizes; the extractor judges the residue).
     """
 
     kind: str                          # "add" | "change" | "remove"
@@ -124,7 +104,7 @@ def reconcile_moves(changes: List[Change], threshold: float = CROSS_HUNK_SIM_THR
     in another — often *reworded*, so the noisy extractor gives it a different
     term — appears as a separate ``remove`` + ``add``. Match high-similarity
     (remove, add) pairs across hunks and promote each to a single ``change``,
-    leaving genuine deletions/additions untouched. Deterministic; no battery.
+    leaving genuine deletions/additions untouched. Deterministic; no extractor.
     """
     removes = [c for c in changes if c.kind == "remove"]
     adds = [c for c in changes if c.kind == "add"]
@@ -232,7 +212,7 @@ def _emit_replace(old_lines, new_lines, i1, i2, j1, j2, extract) -> List[Change]
       1. pair by stable TERM — same term + changed defn = an unambiguous revise
          (e.g. ``tests: 329`` -> ``tests: 328``);
       2. pair the remainder POSITIONALLY — this is the noisy-term reversal the
-         floor battery missed: the diff KNOWS they're paired even though the
+         deterministic floor missed: the diff KNOWS they're paired even though the
          extractor named them differently (``nix_config`` -> ``toml_config``);
       3. true leftovers -> remove / add.
     """
@@ -263,7 +243,7 @@ def _emit_replace(old_lines, new_lines, i1, i2, j1, j2, extract) -> List[Change]
     # pass 2 — similarity-matched pairing of the term-unmatched remainder. Each
     # remaining old pairs with its most-similar leftover new ABOVE the gate (a
     # rescued rename); an old with no similar-enough new is a true removal, and
-    # any unpaired new is a true addition. Candidate rewrites the battery refines.
+    # any unpaired new is a true addition. Candidate rewrites the extractor refines.
     used_leftover = set()
     for o_line, o_claim in remaining_olds:
         best, best_sim = None, -1.0

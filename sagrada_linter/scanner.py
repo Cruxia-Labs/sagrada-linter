@@ -89,29 +89,47 @@ def scan_history_for_zombies(repo_path: str, file_path: str) -> List[ZombieEvent
             if ch.kind == "remove" and ch.old_claim is not None:
                 retracted[ch.old_claim[0]] = (commit, ch.old_claim[1])
             elif ch.kind == "add" and ch.new_claim is not None:
-                term = ch.new_claim[0]
-                prior = retracted.pop(term, None)
-                # A zombie is strictly CROSS-COMMIT. A remove+add of the same term within
-                # ONE commit is a reword the diff didn't pair (similarity < threshold) — a
-                # rewrite, not a retract->re-add. Only flag when the retract was an EARLIER
-                # commit (the rule was genuinely absent for a span, then came back).
-                if prior is not None and prior[0] != commit:
-                    r_commit, r_def = prior
-                    events.append(ZombieEvent(
-                        file=file_path,
-                        term=term,
-                        retracted_at=r_commit,
-                        retracted_def=r_def,
-                        re_added_at=commit,
-                        re_added_line=ch.new_line_no,
-                        re_added_def=ch.new_claim[1],
-                        changed_meaning=(r_def.strip() != ch.new_claim[1].strip()),
-                    ))
+                _record_revival(ch.new_claim, ch.new_line, ch.new_line_no, commit,
+                                file_path, retracted, events)
             elif ch.kind == "change" and ch.new_claim is not None:
-                # a revise keeps the term live — it is not retracted anymore
-                retracted.pop(ch.new_claim[0], None)
+                # A same-term revise keeps the term live. But a RENAME (different new term)
+                # can bring a previously-retracted term back to life on the NEW side, so
+                # treat the new claim as a potential re-add too.
+                _record_revival(ch.new_claim, ch.new_line, ch.new_line_no, commit,
+                                file_path, retracted, events)
+                if ch.old_claim is not None:
+                    retracted.pop(ch.old_claim[0], None)
         prev = cur
     return events
+
+
+# Opt-out marker: a re-added rule line carrying this is an intentional reversal, not a zombie.
+ALLOW_MARKER = "sagrada:allow"
+
+
+def _record_revival(new_claim, new_line, new_line_no, commit, file_path, retracted, events):
+    """Emit a zombie if ``new_claim``'s term was retracted in an EARLIER commit.
+
+    Skips (a) terms not currently retracted, (b) same-commit rewords (a rewrite, not a
+    retract->re-add), and (c) lines that opt out with the ``sagrada:allow`` marker.
+    """
+    term = new_claim[0]
+    prior = retracted.pop(term, None)
+    if prior is None or prior[0] == commit:
+        return
+    if new_line and ALLOW_MARKER in new_line:
+        return
+    r_commit, r_def = prior
+    events.append(ZombieEvent(
+        file=file_path,
+        term=term,
+        retracted_at=r_commit,
+        retracted_def=r_def,
+        re_added_at=commit,
+        re_added_line=new_line_no,
+        re_added_def=new_claim[1],
+        changed_meaning=(r_def.strip() != new_claim[1].strip()),
+    ))
 
 
 def _candidate_rule_files(repo_path: str) -> List[str]:

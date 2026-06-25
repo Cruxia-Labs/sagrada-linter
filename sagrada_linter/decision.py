@@ -1,12 +1,6 @@
-"""The preflight decision engine — the operator-side "verb" of the tool-boundary gate.
-
-Given the current typed belief-state + a proposed action, decide ALLOW or HALT, and emit
-a signed, chained action receipt. The HALT verdict is a deterministic function of the
-beliefs + action (the `conflict` predicate); the receipt records the exact pre-state
-snapshot + the raw action so an independent verifier can recompute the verdict offline.
-
-This module produces the receipt; it never executes the action. (The agent observes; the
-operator disposes.) The MCP gate (Phase 3) wraps a real tool call around `preflight()`.
+"""Receipt-signing gate: given a snapshot of typed rules and a proposed action, run the
+conflict predicate and emit a signed, chained, offline-verifiable receipt. This produces
+the receipt; it never executes the action.
 """
 from __future__ import annotations
 

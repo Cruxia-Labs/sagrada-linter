@@ -35,14 +35,17 @@ jobs:
 
 - **`fetch-depth: 0` is required.** The scan reads the git *history* of your rule files;
   a shallow checkout has nothing to scan.
-- **Least privilege.** The Action needs only `contents: read` and (to comment)
-  `pull-requests: write`. It makes no other network calls — your file contents never
-  leave the runner.
+- **No third-party network calls.** The Action needs only `contents: read` and (to
+  comment) `pull-requests: write`. The linter itself makes no network calls — its only
+  outputs are the PR comment and the ER1 receipt artifact, which stay inside **your** GitHub
+  repo. Nothing is sent to us or any third party. (The comment and receipt do contain the
+  conflicting rule text, by design, so a reviewer can see exactly what changed.)
 - **The PR comment is deterministic-only.** It reports a finding only when a retracted
   rule was genuinely re-added in your history (no fuzzy/semantic matching), so it will
   not spam reviewers with maybes.
 - **The receipt.** Every run uploads `sagrada-er1-receipts` — a signed, offline-verifiable
-  record of the check that a stranger can recompute with `er1-verify` or `er1_verify.mjs`.
+  record of the check that anyone can recompute with `sagrada-linter verify <receipt>` or
+  `node sagrada_linter/er1_verify.mjs <receipt>`.
 
 ## Inputs
 

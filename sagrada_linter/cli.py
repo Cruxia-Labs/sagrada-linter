@@ -16,30 +16,34 @@ from .scanner import (
     scan_history_for_zombies,
 )
 from .linter_receipt import build_check_receipt, write_receipt
+from .decision import PreflightGate
 
 
 def _cmd_scan_history(args) -> int:
-    repo = args.repo
+    targets = list(args.paths) if args.paths else []
+    repo_root = args.repo
     if args.inject_demo:
-        target = args.path
+        target = targets[0] if targets else None
         if target is None:
-            on_disk = find_rule_files_on_disk(repo)
+            on_disk = find_rule_files_on_disk(repo_root)
             if not on_disk:
                 print("No rule file found to demo. Pass one, e.g. --inject-demo CLAUDE.md", file=sys.stderr)
                 return 2
             target = on_disk[0]
-        events = inject_demo(repo, target)
+        events = inject_demo(repo_root, target)
         by_file = {target: events} if events else {}
         scanned = []
-    elif args.path:
-        events = scan_history_for_zombies(repo, args.path)
-        by_file = {args.path: events} if events else {}
-        scanned = [args.path]
     else:
-        scanned = discover_rule_files(repo)
+        if not targets:
+            scanned = discover_rule_files(repo_root)
+        elif len(targets) == 1 and os.path.isdir(targets[0]):
+            repo_root = targets[0]                      # `scan-history .` -> the repo, auto-discover
+            scanned = discover_rule_files(repo_root)
+        else:
+            scanned = targets                           # explicit rule file(s)
         by_file = {}
         for f in scanned:
-            ev = scan_history_for_zombies(repo, f)
+            ev = scan_history_for_zombies(repo_root, f)
             if ev:
                 by_file[f] = ev
 
@@ -52,12 +56,13 @@ def _cmd_scan_history(args) -> int:
         print(format_events(by_file, color=sys.stdout.isatty()))
 
     if args.receipt and scanned:
-        rdir = args.receipt_dir or os.path.join(repo, ".sagrada", "receipts")
+        rdir = args.receipt_dir or os.path.join(repo_root, ".sagrada", "receipts")
+        gate = PreflightGate()                          # ONE gate -> a continuous receipt chain
         written = []
         for f in scanned:
             evs = by_file.get(f, [])
             z = [(e.term, e.re_added_def, e.retracted_at, e.re_added_at) for e in evs]
-            written.append(write_receipt(build_check_receipt(f, z), rdir))
+            written.append(write_receipt(build_check_receipt(f, z, gate=gate), rdir))
         print(f"{len(written)} receipt(s) written to {rdir} — "
               f"verify offline with `sagrada-linter verify` or `node er1_verify.mjs`.", file=sys.stderr)
 
@@ -76,8 +81,8 @@ def main(argv=None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sh = sub.add_parser("scan-history", help="Scan your git history for zombie prompts.")
-    sh.add_argument("path", nargs="?", default=None,
-                    help="A rule file to scan; omit to auto-discover all rule files.")
+    sh.add_argument("paths", nargs="*",
+                    help="Rule file(s) to scan, or a repo dir (e.g. '.'); omit to auto-discover in --repo.")
     sh.add_argument("--repo", "-r", default=".", help="Git repo to scan (default: current dir).")
     sh.add_argument("--inject-demo", action="store_true",
                     help="Plant a zombie into a throwaway copy of your rules and show the catch.")

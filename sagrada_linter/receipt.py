@@ -1,18 +1,7 @@
-"""The Action Receipt — signed, chained, offline-verifiable record of a preflight decision.
-
-Reuses the proven primitives from `the vendored canonical-JSON module`:
-  - `canonical_json` (RFC 8785 canonical serialization — sorted keys, NFC, compact),
-  - SHA-256 over the canonical body with `signature := null`,
-  - Ed25519 over the raw 32-byte digest (b64url-encoded keys/sigs).
-
-The schema carries the irreversible monetization/standard seams the boards said are
-now-or-never (the signature covers the schema, so they cannot be retrofitted): per-belief
-`source_kind`, `action_binding`, the receipt `chain`, `belief_class`/`halt_eligible`,
-`coverage`, key/verification tiers, and witness slots.
-
-Determinism fence (#3): `receipt_id` and `created_at` are signed metadata but are NOT
-part of the *verified claim* — the verifier re-runs the conflict predicate over the
-recorded beliefs + action, not over the timestamp/uuid.
+"""The signed, chained, offline-verifiable receipt: canonical JSON (RFC 8785) + SHA-256 +
+Ed25519. receipt_id and created_at are signed metadata but are excluded from the verified
+claim — a verifier re-runs the predicate over the recorded rules + action, not over the
+timestamp or id.
 """
 from __future__ import annotations
 
