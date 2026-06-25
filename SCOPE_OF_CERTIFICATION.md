@@ -51,6 +51,15 @@ Everything runs locally. Your file contents never leave your machine — the sca
 subprocess plus standard-library text diffing, with no network calls and no model. The receipt
 contains only what you choose to record.
 
+## Whose keys count
+
+The receipt is signed, which proves it wasn't altered — not that the signer is trustworthy. For
+the linter that's a non-issue: you verify your *own* receipts on your *own* machine, so you already
+know who signed them. If you ever consume a receipt from elsewhere, *you* decide which public keys
+you accept (the verifier prints the signing key for exactly that). Whose keys count is the relying
+party's policy, never baked into the format — and the schema reserves `key_tier` / `witnesses[]` /
+`verification_tier` seams for a richer trust layer when one is needed. **Coherence, not authority.**
+
 ## The receipt format
 
 The receipt format is **ER1** — an open, offline-verifiable format designed so the *verifier* is

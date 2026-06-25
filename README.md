@@ -3,7 +3,7 @@
 **Catch the AI rules you already changed before they break your build — a local linter for your `.cursorrules`, `CLAUDE.md`, and `AGENTS.md`.**
 
 [![CI](https://github.com/Cruxia-Labs/sagrada-linter/actions/workflows/ci.yml/badge.svg)](https://github.com/Cruxia-Labs/sagrada-linter/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen)](#pre-commit)
 
 Your agent keeps acting on rules you already changed. You retract a guideline in
@@ -127,4 +127,4 @@ The receipt format is **ER1** — open, and built so the verifier is the simple 
 
 ## License
 
-MIT © Cruxia. Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
