@@ -14,19 +14,7 @@ These are **zombie prompts**, and they're invisible to a snapshot — they only 
 
 Sagrada Linter reads that history and catches them.
 
-```console
-$ sagrada-linter scan-history .
-
-2 zombie-prompt events found — a rule was retracted, then re-added later:
-
-  ✗ CLAUDE.md:14  output_format
-      retracted a1b2c3d4: always return strict JSON, never prose
-      re-added  9f8e7d6c: always return strict JSON, never prose
-
-  ✗ .cursorrules:7  test_runner
-      retracted 5e4d3c2b: use pytest, never unittest
-      re-added (meaning changed) 0a1b2c3d: prefer pytest; unittest is acceptable
-```
+<p align="center"><img src="media/scan_hero.gif" alt="Running sagrada-linter scan-history on a repo: it reports a rule (test_runner) that was retracted in one commit and re-added in a later one, with the file:line and both commit hashes." width="840"></p>
 
 ## Try it on your own repo (30 seconds, nothing installed)
 
