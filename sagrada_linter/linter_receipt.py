@@ -13,10 +13,10 @@ never reaches this path (the conflict predicate only gates ``deterministic`` bel
 """
 from __future__ import annotations
 
-import json
 import os
 from typing import Iterable, List, Optional, Tuple
 
+from .canonical import canonical_json
 from . import conflict as C
 from .decision import PreflightGate
 
@@ -53,13 +53,16 @@ def build_check_receipt(
 
 
 def write_receipt(receipt: dict, receipts_dir: str) -> str:
-    """Write a receipt to ``receipts_dir`` as ``<receipt_id>.er1.json`` (canonical-ish,
-    pretty). Returns the path."""
+    """Write a receipt to ``receipts_dir`` as ``<receipt_id>.er1.json``.
+
+    Written as **canonical JSON bytes** (RFC 8785) — byte-for-byte the form a verifier
+    hashes — so the on-disk file and the verified claim cannot diverge. Returns the path.
+    """
     os.makedirs(receipts_dir, exist_ok=True)
     rid = receipt.get("receipt_id", "receipt")
     path = os.path.join(receipts_dir, f"{rid}.er1.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(receipt, fh, indent=2, sort_keys=True)
+    with open(path, "wb") as fh:
+        fh.write(canonical_json(receipt))
     return path
 
 

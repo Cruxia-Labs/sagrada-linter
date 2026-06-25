@@ -70,6 +70,24 @@ def test_same_commit_reword_is_not_a_zombie():
     assert scan_history_for_zombies(r, "CLAUDE.md") == []
 
 
+def test_worktree_catches_uncommitted_re_add():
+    # The pre-commit gate: a re-add staged for this commit must be caught with --worktree.
+    r = tempfile.mkdtemp()
+    _git(r, "init", "-q")
+    for text, msg in [
+        ("- db_engine: use PostgreSQL with a pool\n- fmt: strict JSON\n", "v1"),
+        ("- fmt: strict JSON\n", "retract"),
+    ]:
+        open(os.path.join(r, "CLAUDE.md"), "w").write(text)
+        _git(r, "add", "CLAUDE.md")
+        _git(r, "commit", "-q", "-m", msg, "--allow-empty")
+    open(os.path.join(r, "CLAUDE.md"), "w").write(
+        "- db_engine: use PostgreSQL with a pool\n- fmt: strict JSON\n")  # uncommitted re-add
+    assert scan_history_for_zombies(r, "CLAUDE.md") == []
+    wt = scan_history_for_zombies(r, "CLAUDE.md", include_worktree=True)
+    assert len(wt) == 1 and wt[0].re_added_at == "WORKTREE"
+
+
 def test_sagrada_allow_suppresses_intentional_reversal():
     r = tempfile.mkdtemp()
     _git(r, "init", "-q")

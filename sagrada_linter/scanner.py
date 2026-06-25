@@ -72,13 +72,28 @@ class ZombieEvent:
         return f"{self.file}{ln}"
 
 
-def scan_history_for_zombies(repo_path: str, file_path: str) -> List[ZombieEvent]:
+def scan_history_for_zombies(repo_path: str, file_path: str,
+                             include_worktree: bool = False) -> List[ZombieEvent]:
     """Walk one rule file's git history and return its zombie events, chronologically.
 
     Deterministic and offline. ``file_path`` is repo-relative. Returns ``[]`` for a
     file with no history (or no zombies).
+
+    ``include_worktree`` appends the file's CURRENT working-tree content as a final
+    pseudo-version (commit id ``WORKTREE``), so a re-add staged for *this* commit — not yet
+    in git history — is caught. This is what makes a pre-commit gate possible: the
+    retrospective scan alone can only see already-committed re-adds.
     """
     versions = walk_file_history(repo_path, file_path)
+    if include_worktree:
+        wt = os.path.join(repo_path, file_path)
+        if os.path.isfile(wt):
+            try:
+                content = open(wt, encoding="utf-8").read()
+            except OSError:
+                content = None
+            if content is not None and (not versions or versions[-1][2] != content):
+                versions = list(versions) + [("WORKTREE", 0, content)]
     # term -> (retract_commit, retract_def); present IFF the term is currently retracted.
     retracted: Dict[str, Tuple[str, str]] = {}
     events: List[ZombieEvent] = []

@@ -1,7 +1,9 @@
 - id: sagrada-linter
   name: Sagrada Linter — catch zombie prompts
   description: Block a commit that re-adds an AI rule you already retracted.
-  entry: sagrada-linter scan-history --strict --receipt
+  # --worktree includes the about-to-be-committed content, so a re-add staged for THIS
+  # commit (not yet in git history) is caught. pass_filenames feeds the staged rule files.
+  entry: sagrada-linter scan-history --strict --worktree
   language: python
-  pass_filenames: false
+  pass_filenames: true
   files: '(^|/)(CLAUDE\.md|AGENTS\.md|GEMINI\.md|\.cursorrules)$|\.cursor/rules/.*\.(md|mdc)$|^\.github/copilot-instructions\.md$'

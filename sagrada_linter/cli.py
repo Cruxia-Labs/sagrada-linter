@@ -43,7 +43,7 @@ def _cmd_scan_history(args) -> int:
             scanned = targets                           # explicit rule file(s)
         by_file = {}
         for f in scanned:
-            ev = scan_history_for_zombies(repo_root, f)
+            ev = scan_history_for_zombies(repo_root, f, include_worktree=args.worktree)
             if ev:
                 by_file[f] = ev
 
@@ -91,6 +91,8 @@ def main(argv=None) -> int:
     sh.add_argument("--receipt", action="store_true",
                     help="Emit a signed ER1 receipt per scanned file into .sagrada/receipts/.")
     sh.add_argument("--receipt-dir", default=None, help="Where to write receipts.")
+    sh.add_argument("--worktree", action="store_true",
+                    help="Also check the current (uncommitted) file content — catches a re-add staged for this commit.")
     sh.add_argument("--strict", action="store_true", help="Exit non-zero if any zombie is found (for CI).")
     sh.set_defaults(func=_cmd_scan_history)
 
