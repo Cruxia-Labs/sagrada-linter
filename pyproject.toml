@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sagrada-linter"
+version = "0.1.0"
+description = "Catch zombie prompts — retracted AI rules that crept back into your .cursorrules / CLAUDE.md / AGENTS.md — with a verifiable receipt."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Mars Ausili", email = "mars@cruxia.ai" }]
+keywords = ["ai", "agents", "cursorrules", "linter", "pre-commit", "prompt", "coherence"]
+dependencies = ["cryptography>=41"]
+
+[project.urls]
+Homepage = "https://github.com/Cruxia-Labs/sagrada-linter"
+
+[project.scripts]
+sagrada-linter = "sagrada_linter.cli:main"
+
+[tool.setuptools]
+packages = ["sagrada_linter"]
+
+[tool.setuptools.package-data]
+sagrada_linter = ["er1_verify.mjs", "golden_vectors.json"]

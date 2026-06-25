@@ -1,0 +1,7 @@
+- id: sagrada-linter
+  name: Sagrada Linter — catch zombie prompts
+  description: Block a commit that re-adds an AI rule you already retracted.
+  entry: sagrada-linter scan-history --strict --receipt
+  language: python
+  pass_filenames: false
+  files: '(^|/)(CLAUDE\.md|AGENTS\.md|GEMINI\.md|\.cursorrules)$|\.cursor/rules/.*\.(md|mdc)$|^\.github/copilot-instructions\.md$'

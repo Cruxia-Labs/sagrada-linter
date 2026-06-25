@@ -1,0 +1,75 @@
+name: "Sagrada Linter"
+description: "Catch zombie prompts — retracted rules re-added to your .cursorrules / CLAUDE.md / AGENTS.md — and attach a verifiable ER1 receipt."
+author: "Cruxia-Labs"
+branding:
+  icon: "shield"
+  color: "yellow"
+
+inputs:
+  paths:
+    description: "Optional rule files to scan (space-separated). Default: auto-discover."
+    required: false
+    default: ""
+  comment:
+    description: "Post a PR comment with the result."
+    required: false
+    default: "true"
+  fail-on-zombie:
+    description: "Fail the check when a zombie prompt is found."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+
+    - name: Install Sagrada Linter
+      shell: bash
+      run: pipx install sagrada-linter || pip install --user sagrada-linter
+
+    - name: Scan rule-file history for zombie prompts
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        # One call: write receipts (stderr keeps stdout clean), print the PR comment
+        # to a file, and exit non-zero on a zombie. The comment only ever contains the
+        # DETERMINISTIC retract->re-add events — amber never reaches a reviewer's PR.
+        sagrada-linter scan-history ${{ inputs.paths }} \
+          --receipt --receipt-dir "$RUNNER_TEMP/sagrada-receipts" \
+          --github-comment --strict > "$RUNNER_TEMP/sagrada-comment.md"
+        echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        echo "----- sagrada comment -----"
+        cat "$RUNNER_TEMP/sagrada-comment.md"
+
+    - name: Upload ER1 receipts
+      uses: actions/upload-artifact@v4
+      with:
+        name: sagrada-er1-receipts
+        path: ${{ runner.temp }}/sagrada-receipts/
+        if-no-files-found: ignore
+
+    - name: Comment on the pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/sagrada-comment.md`, 'utf8');
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body,
+          });
+
+    - name: Enforce (fail on zombie)
+      if: ${{ inputs.fail-on-zombie == 'true' && steps.scan.outputs.exit_code != '0' }}
+      shell: bash
+      run: |
+        echo "::error::Sagrada Linter: a retracted rule was re-added (zombie prompt). See the PR comment and the ER1 receipt artifact."
+        exit 1
