@@ -115,6 +115,33 @@ node er1_verify.mjs .sagrada/receipts/*.er1.json
 The receipt format is **ER1** — open, and built so the verifier is the simple part: see
 [SCOPE_OF_CERTIFICATION.md](SCOPE_OF_CERTIFICATION.md) for exactly what is certified and what is not.
 
+## In your agent — decision-time receipts
+
+`scan-history` audits the past. To attest what an agent did *as it acts*, call `check_action` in your
+loop (or from an MCP tool) **before** it runs a step: you get an `ALLOW` / `HALT` verdict **and** a
+receipt of the exact constraint state the action was taken under — recomputable offline by anyone.
+
+```python
+from sagrada_linter import check_action
+
+# your agent's active, deterministic constraints (from your rules / policy)
+beliefs = [
+    {"entity": "env:DEPLOY_TARGET", "rule": "equals", "value": "staging"},
+    {"entity": "lib:boto3", "rule": "excludes"},
+]
+receipt = check_action(
+    beliefs,
+    {"tool": "shell", "asserts": {"env:DEPLOY_TARGET": "production"}, "resource": "deploy.sh"},
+    receipts_dir=".sagrada/receipts",
+)
+if receipt["decision"]["verdict"] == "HALT":
+    raise RuntimeError(receipt["decision"]["reason_code"])   # -> SUPERSEDED_VALUE
+```
+
+Or from the shell: `sagrada-linter check-action --beliefs beliefs.json --action action.json --receipt`.
+Runs locally, no network — **we never see your files**. The receipt verifies in Python or zero-dep JS,
+so a relying party never has to trust the agent that produced it.
+
 ## License
 
 Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).

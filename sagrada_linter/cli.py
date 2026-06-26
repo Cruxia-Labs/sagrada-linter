@@ -74,6 +74,24 @@ def _cmd_verify(args) -> int:
     return subprocess.run([sys.executable, verifier] + args.receipts).returncode
 
 
+def _cmd_check_action(args) -> int:
+    from .preflight import check_action
+    beliefs = json.load(open(args.beliefs)) if args.beliefs else []
+    action = json.load(open(args.action))
+    rdir = (args.receipt_dir or os.path.join(".", ".sagrada", "receipts")) if args.receipt else None
+    receipt = check_action(beliefs, action, receipts_dir=rdir)
+    decision = receipt.get("decision", {})
+    verdict, rc = decision.get("verdict", "?"), decision.get("reason_code", "")
+    if args.json:
+        print(json.dumps(receipt, indent=2))
+    else:
+        print(verdict + (f"  {rc}" if rc else ""))
+        if rdir:
+            print(f"receipt written to {rdir} — verify offline with `sagrada-linter verify` "
+                  f"or `node er1_verify.mjs`.", file=sys.stderr)
+    return 1 if (args.strict and verdict == "HALT") else 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         prog="sagrada-linter",
@@ -99,6 +117,18 @@ def main(argv=None) -> int:
     v = sub.add_parser("verify", help="Verify ER1 receipts offline.")
     v.add_argument("receipts", nargs="+", help="Receipt JSON file(s).")
     v.set_defaults(func=_cmd_verify)
+
+    ca = sub.add_parser("check-action",
+                        help="Preflight a proposed agent action against its active constraints; emit a signed ER1 receipt.")
+    ca.add_argument("--beliefs", default=None,
+                    help="JSON file: [{entity, rule(equals|excludes|satisfies), value?}] — the active constraints.")
+    ca.add_argument("--action", required=True,
+                    help="JSON file: {tool, asserts:{entity:value}, resource} — the proposed action.")
+    ca.add_argument("--receipt", action="store_true", help="Write a signed ER1 receipt into .sagrada/receipts/.")
+    ca.add_argument("--receipt-dir", default=None, help="Where to write the receipt.")
+    ca.add_argument("--json", action="store_true", help="Print the full receipt as JSON.")
+    ca.add_argument("--strict", action="store_true", help="Exit non-zero on HALT (for CI / a hard gate).")
+    ca.set_defaults(func=_cmd_check_action)
 
     args = p.parse_args(argv)
     return args.func(args)

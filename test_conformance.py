@@ -132,3 +132,32 @@ def test_tampered_receipt_fails():
     obj["decision"]["proposed"] = "TAMPERED"
     json.dump(obj, open(p, "w"), indent=2, sort_keys=True)
     assert subprocess.run([sys.executable, os.path.join(PKG, "er1_verify.py"), p]).returncode != 0
+
+
+def test_check_action_emits_verifiable_receipt(tmp_path):
+    """check-action: a proposed action that violates an active constraint -> HALT + a receipt
+    that recomputes under the reference verifier."""
+    import json, subprocess, sys, os
+    from sagrada_linter import check_action
+    beliefs = [{"entity": "env:DEPLOY_TARGET", "rule": "equals", "value": "staging"},
+               {"entity": "lib:boto3", "rule": "excludes"}]
+    # value flip -> SUPERSEDED_VALUE
+    r = check_action(beliefs, {"tool": "shell", "asserts": {"env:DEPLOY_TARGET": "production"},
+                               "resource": "deploy.sh"})
+    assert r["decision"]["verdict"] == "HALT"
+    assert r["decision"]["reason_code"] == "SUPERSEDED_VALUE"
+    # banned entity
+    r2 = check_action(beliefs, {"tool": "shell", "asserts": {"lib:boto3": "import"}, "resource": "x.py"})
+    assert r2["decision"]["verdict"] == "HALT" and r2["decision"]["reason_code"] == "BANNED_ENTITY"
+    # coherent -> ALLOW
+    r3 = check_action(beliefs, {"tool": "shell", "asserts": {"env:DEPLOY_TARGET": "staging"},
+                                "resource": "deploy.sh"})
+    assert r3["decision"]["verdict"] == "ALLOW"
+    # the HALT receipt recomputes under the bundled Python reference verifier
+    d = tmp_path / "rcpt"
+    check_action(beliefs, {"tool": "shell", "asserts": {"env:DEPLOY_TARGET": "production"},
+                           "resource": "deploy.sh"}, receipts_dir=str(d))
+    rcpt = next(d.glob("*.er1.json"))
+    verifier = os.path.join(os.path.dirname(__file__), "sagrada_linter", "er1_verify.py")
+    out = subprocess.run([sys.executable, verifier, str(rcpt)], capture_output=True, text=True)
+    assert "VERIFIED" in out.stdout and "FAIL" not in out.stdout.upper()
