@@ -106,8 +106,10 @@ a stranger recomputes it byte-for-byte, in two languages, with no install and no
 
 ```bash
 sagrada-linter scan-history . --receipt
-sagrada-linter verify .sagrada/receipts/*.er1.json     # Python
-node sagrada_linter/er1_verify.mjs .sagrada/receipts/*.er1.json   # JavaScript, zero-dependency
+sagrada-linter verify .sagrada/receipts/*.er1.json     # Python — works from any install
+# Or the zero-dependency JS reference verifier (one file; grab it from the repo):
+#   curl -O https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.1.0/sagrada_linter/er1_verify.mjs
+node er1_verify.mjs .sagrada/receipts/*.er1.json
 ```
 
 The receipt format is **ER1** — open, and built so the verifier is the simple part: see
@@ -116,3 +118,8 @@ The receipt format is **ER1** — open, and built so the verifier is the simple 
 ## License
 
 Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+
+---
+
+*A zombie prompt is the smallest, most checkable case of a general problem: systems that re-assert beliefs they were told to drop. The linter catches the deterministic version of that — and nothing fuzzier. It emits an ER1 receipt so the catch is something a stranger can re-verify, not something you take on trust. It's the first verb in a family. → [Cruxia-Labs](https://github.com/Cruxia-Labs)*

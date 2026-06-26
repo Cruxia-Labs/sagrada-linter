@@ -5,7 +5,7 @@
 // Node's built-in `node:crypto` — no npm install, no network, no engine code. It reproduces
 // `er1_verify.py` byte-for-byte: the same RFC 8785–compatible canonical JSON, the same Ed25519
 // check over the SHA-256 digest, the same constraint predicate and verdict recomputation. Two
-// independent implementations agreeing on the same signed bytes is what makes ER1 a STANDARD, not
+// independent implementations agreeing on the same signed bytes is what would earn ER1 the word STANDARD, not
 // a log: anyone can re-derive the verdict in their own stack and get the identical answer.
 //
 //     node er1_verify.mjs receipt.json [...]        # verify receipt file(s)

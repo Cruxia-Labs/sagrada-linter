@@ -3,7 +3,7 @@
 The linter's quiet rail: every gate check drops a real ER1 receipt into ``.sagrada/
 receipts/`` so a stranger can recompute the verdict offline, byte-for-byte, with the
 live ``er1-verify`` (Python) or ``er1_verify.mjs`` (JS) — no change to the frozen ER1
-standard.
+format.
 
 Mapping (honest, and documented in SCOPE_OF_CERTIFICATION): a rule that was RETRACTED is
 treated as **excluded from the live rule set**, so re-introducing it is a ``BANNED_ENTITY``
