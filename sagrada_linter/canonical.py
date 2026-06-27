@@ -11,6 +11,14 @@ Rules (see SCHEMA.md §4):
   5. null / true / false as bare literals.
   6. No trailing newline.
 
+Number profile (important): the ER1 receipt schema carries only strings, integers, booleans,
+and null — it has NO non-integer floats. The integer + shortest-float path here is byte-identical
+to the JS verifier across that profile (golden_vectors.json pins it). The one place this serializer
+is NOT yet exactly ECMAScript-equivalent is large-magnitude / high-precision floats (e.g. positive
+exponents ≥ 1e21, where ECMAScript emits `1e+21`): those never appear in a receipt, so they are
+out of the conformance profile rather than a divergence a real receipt can hit. Do not introduce a
+receipt field that is a non-integer float without first reconciling this path with the JS verifier.
+
 Mirror implementation: typescript/src/canonical.ts.
 """
 from __future__ import annotations

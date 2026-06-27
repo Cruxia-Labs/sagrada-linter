@@ -253,8 +253,14 @@ def inject_demo(repo_path: str, file_path: str) -> List[ZombieEvent]:
 
 # --- formatting ------------------------------------------------------------
 
-def format_events(by_file: Dict[str, List[ZombieEvent]], *, color: bool = False) -> str:
-    """Human-readable scan report. ``color`` adds ANSI for terminals."""
+def format_events(by_file: Dict[str, List[ZombieEvent]], *, color: bool = False,
+                  n_scanned: Optional[int] = None) -> str:
+    """Human-readable scan report. ``color`` adds ANSI for terminals.
+
+    ``n_scanned`` is how many rule files were actually scanned (``None`` = unknown / demo). When
+    it is 0 we say *nothing was checked* rather than claiming coherence — finding no rule files
+    is not the same as finding clean ones.
+    """
     def red(s: str) -> str:
         return f"\033[31m{s}\033[0m" if color else s
 
@@ -263,6 +269,10 @@ def format_events(by_file: Dict[str, List[ZombieEvent]], *, color: bool = False)
 
     total = sum(len(v) for v in by_file.values())
     if total == 0:
+        if n_scanned == 0:
+            return ("No rule files found to scan (looked for CLAUDE.md / .cursorrules / AGENTS.md "
+                    "and friends). Nothing was checked — pass a path explicitly if your rules live "
+                    "elsewhere, e.g. `sagrada-linter scan-history path/to/rules.md`.")
         return "0 zombie-prompt events found. Your rule files are coherent over time. ✓"
 
     lines = [red(f"{total} zombie-prompt event(s) found") +

@@ -51,7 +51,9 @@ def check_action(
             rule=rule,
             value=str(b.get("value", "")),
             status=b.get("status", C.STATUS_ACTIVE),
-            source_kind=b.get("source", C.SOURCE_DETERMINISTIC),
+            # Accept either the documented ``source`` key or the on-wire ``source_kind`` alias.
+            # Default is deterministic (fail-closed): an unlabelled constraint gates by design.
+            source_kind=b.get("source", b.get("source_kind", C.SOURCE_DETERMINISTIC)),
         ))
     act = C.ProposedAction(
         tool=action.get("tool", "agent"),

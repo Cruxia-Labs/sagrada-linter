@@ -134,6 +134,38 @@ def test_tampered_receipt_fails():
     assert subprocess.run([sys.executable, os.path.join(PKG, "er1_verify.py"), p]).returncode != 0
 
 
+def test_tampered_canonical_bytes_receipt_fails():
+    """Stronger tamper proof: re-serialize the mutated receipt as *canonical* JSON bytes (the exact
+    encoding the verifier recomputes over), so rejection cannot be an artifact of non-canonical
+    whitespace — it proves the signature/state-root binding actually fails on a byte-perfect file."""
+    from sagrada_linter.canonical import canonical_json
+    _ev, p = _receipt_for_fixture()
+    obj = json.load(open(p))
+    obj["beliefs"][0]["value"] = obj["beliefs"][0].get("value", "") + "_TAMPERED"
+    with open(p, "wb") as f:
+        f.write(canonical_json(obj))
+    assert subprocess.run([sys.executable, os.path.join(PKG, "er1_verify.py"), p]).returncode != 0
+    if NODE:
+        assert subprocess.run([NODE, os.path.join(PKG, "er1_verify.mjs"), p]).returncode != 0
+
+
+def test_history_follows_renames():
+    """A rule retracted under one filename and re-added after a `git mv` is still caught — the
+    walker must read pre-rename revisions under their historical path, not the current one."""
+    r = tempfile.mkdtemp()
+    _git(r, "init", "-q")
+    # v1 under CLAUDE.md, then retract the rule, then RENAME, then re-add the rule under the new name
+    open(os.path.join(r, "CLAUDE.md"), "w").write("- db_engine: use PostgreSQL with a pool\n- fmt: strict JSON\n")
+    _git(r, "add", "CLAUDE.md"); _git(r, "commit", "-q", "-m", "v1")
+    open(os.path.join(r, "CLAUDE.md"), "w").write("- fmt: strict JSON\n")
+    _git(r, "add", "CLAUDE.md"); _git(r, "commit", "-q", "-m", "retract")
+    _git(r, "mv", "CLAUDE.md", "AGENTS.md"); _git(r, "commit", "-q", "-m", "rename rules file")
+    open(os.path.join(r, "AGENTS.md"), "w").write("- db_engine: use PostgreSQL with a pool\n- fmt: strict JSON\n")
+    _git(r, "add", "AGENTS.md"); _git(r, "commit", "-q", "-m", "zombie after rename")
+    ev = scan_history_for_zombies(r, "AGENTS.md")
+    assert len(ev) == 1 and ev[0].term == "db_engine"
+
+
 def test_check_action_emits_verifiable_receipt(tmp_path):
     """check-action: a proposed action that violates an active constraint -> HALT + a receipt
     that recomputes under the reference verifier."""

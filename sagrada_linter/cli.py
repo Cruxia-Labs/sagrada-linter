@@ -53,7 +53,8 @@ def _cmd_scan_history(args) -> int:
         print(json.dumps({f: [dataclasses.asdict(e) for e in evs]
                           for f, evs in by_file.items()}, indent=2))
     else:
-        print(format_events(by_file, color=sys.stdout.isatty()))
+        n_scanned = None if args.inject_demo else len(scanned)
+        print(format_events(by_file, color=sys.stdout.isatty(), n_scanned=n_scanned))
 
     if args.receipt and scanned:
         rdir = args.receipt_dir or os.path.join(repo_root, ".sagrada", "receipts")
@@ -65,6 +66,10 @@ def _cmd_scan_history(args) -> int:
             written.append(write_receipt(build_check_receipt(f, z, gate=gate), rdir))
         print(f"{len(written)} receipt(s) written to {rdir} — "
               f"verify offline with `sagrada-linter verify` or `node er1_verify.mjs`.", file=sys.stderr)
+    elif args.receipt and args.inject_demo:
+        print("note: --receipt is a no-op with --inject-demo (the demo plants a zombie in a "
+              "throwaway copy — there is no real history to sign). Run scan-history on a real "
+              "repo to emit a receipt.", file=sys.stderr)
 
     return 1 if (args.strict and any(by_file.values())) else 0
 
@@ -76,8 +81,12 @@ def _cmd_verify(args) -> int:
 
 def _cmd_check_action(args) -> int:
     from .preflight import check_action
-    beliefs = json.load(open(args.beliefs)) if args.beliefs else []
-    action = json.load(open(args.action))
+    beliefs = []
+    if args.beliefs:
+        with open(args.beliefs, encoding="utf-8") as bf:
+            beliefs = json.load(bf)
+    with open(args.action, encoding="utf-8") as af:
+        action = json.load(af)
     rdir = (args.receipt_dir or os.path.join(".", ".sagrada", "receipts")) if args.receipt else None
     receipt = check_action(beliefs, action, receipts_dir=rdir)
     decision = receipt.get("decision", {})

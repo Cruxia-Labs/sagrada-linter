@@ -13,8 +13,9 @@ Thanks for helping make agent rule files coherent over time.
 
 ## Write an independent ER1 verifier (the high-value one)
 
-The receipt format (ER1) is meant to be a *standard*, not one tool's output. The proof of that
-is a **second, independent implementation** that recomputes the same verdicts. This repo ships
+The receipt format (ER1) is an **open format**, not one tool's output — and it earns the word
+*standard* only when a party other than us recomputes the same verdicts. The proof of that
+is a **second, independent implementation** that recomputes them. This repo ships
 two reference verifiers (Python + JavaScript) and a frozen conformance suite
 (`sagrada_linter/golden_vectors.json`). If you write a verifier in another language that passes
 those vectors byte-for-byte, open a PR adding it to a conformance list — that's the single most
