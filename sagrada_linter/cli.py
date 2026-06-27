@@ -17,11 +17,13 @@ from .scanner import (
 )
 from .linter_receipt import build_check_receipt, write_receipt
 from .decision import PreflightGate
+from .gitwalk import walk_file_history
 
 
 def _cmd_scan_history(args) -> int:
     targets = list(args.paths) if args.paths else []
     repo_root = args.repo
+    unresolved: list = []
     if args.inject_demo:
         target = targets[0] if targets else None
         if target is None:
@@ -40,7 +42,17 @@ def _cmd_scan_history(args) -> int:
             repo_root = targets[0]                      # `scan-history .` -> the repo, auto-discover
             scanned = discover_rule_files(repo_root)
         else:
-            scanned = targets                           # explicit rule file(s)
+            # Explicit target(s): keep only paths we can actually read — one with git history, or
+            # (with --worktree) a file present on disk. Anything else is reported and EXCLUDED, so
+            # we never print "coherent" or sign a receipt for a file that was never scanned.
+            scanned = []
+            for f in targets:
+                has_history = bool(walk_file_history(repo_root, f))
+                on_disk = args.worktree and os.path.isfile(os.path.join(repo_root, f))
+                (scanned if (has_history or on_disk) else unresolved).append(f)
+            for f in unresolved:
+                print(f"error: '{f}' has no git history in {repo_root} "
+                      f"(and no worktree copy) — not scanned.", file=sys.stderr)
         by_file = {}
         for f in scanned:
             ev = scan_history_for_zombies(repo_root, f, include_worktree=args.worktree)
@@ -70,6 +82,15 @@ def _cmd_scan_history(args) -> int:
         print("note: --receipt is a no-op with --inject-demo (the demo plants a zombie in a "
               "throwaway copy — there is no real history to sign). Run scan-history on a real "
               "repo to emit a receipt.", file=sys.stderr)
+    elif args.receipt:
+        print("note: nothing was scanned, so no receipt was written.", file=sys.stderr)
+
+    # An explicitly-named target we could not read is an error, not a clean pass: never let a
+    # missing/typo'd path exit 0 as if it were checked.
+    if unresolved and not scanned:
+        return 2
+    if unresolved and args.strict:
+        return 1
 
     return 1 if (args.strict and any(by_file.values())) else 0
 

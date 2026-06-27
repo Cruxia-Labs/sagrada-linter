@@ -45,10 +45,13 @@ runs:
         set -f          # disable globbing when $SAGRADA_PATHS word-splits
         # One call: write receipts (stderr keeps stdout clean), print the PR comment to a
         # file, and exit non-zero on a zombie. The comment only ever contains DETERMINISTIC
-        # retract->re-add events — amber never reaches a reviewer's PR.
-        sagrada-linter scan-history $SAGRADA_PATHS \
+        # retract->re-add events — amber never reaches a reviewer's PR. Flags come first and a
+        # literal `--` precedes $SAGRADA_PATHS so its words can only ever be PATHS, never options
+        # (no `--repo`-style argument injection even though it word-splits).
+        sagrada-linter scan-history \
           --receipt --receipt-dir "$RUNNER_TEMP/sagrada-receipts" \
-          --github-comment --strict > "$RUNNER_TEMP/sagrada-comment.md"
+          --github-comment --strict \
+          -- $SAGRADA_PATHS > "$RUNNER_TEMP/sagrada-comment.md"
         code=$?
         echo "exit_code=$code" >> "$GITHUB_OUTPUT"
         echo "----- sagrada comment -----"

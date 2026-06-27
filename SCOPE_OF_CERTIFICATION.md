@@ -22,6 +22,13 @@ When `scan-history --receipt` writes an ER1 receipt, it certifies exactly this:
 That's it. The receipt is **admissible, not accurate**: it proves the check was performed and
 what it concluded — it does not vouch for your rules.
 
+> **Keys.** A live receipt is signed with a **fresh, ephemeral** Ed25519 key generated at check
+> time (`key_tier: "ephemeral"`) — there is no long-lived signing key in this package. The
+> deterministic seed in `golden_vectors.json` (`fixed_inputs.ed25519_private_seed_hex`) is a
+> **published test vector**, present *on purpose* so that any independent verifier can reproduce
+> the golden signatures byte-for-byte. It is never used to sign a real receipt. (This is normal for
+> a signed-format conformance suite — cf. the RFC 8032 / Wycheproof test keys.)
+
 ## What is _certified_ (deterministic — can fail your build)
 
 - **Zombie prompts: a retracted rule re-added.** A rule that was removed in one commit and

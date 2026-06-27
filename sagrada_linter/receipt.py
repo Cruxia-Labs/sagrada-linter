@@ -21,6 +21,10 @@ from cryptography.exceptions import InvalidSignature
 from .canonical import canonical_json
 
 SCHEMA_VERSION = "action-receipt/v0"
+# The operator that produced a LIVE receipt. Intentionally distinct from the frozen
+# golden_vectors.json, whose receipts record `er1-ref/1` (the reference producer pinned for
+# cross-implementation conformance). Live receipts from this linter are NOT expected to match the
+# golden vectors byte-for-byte — the vectors test the verifier, not this producer's metadata.
 OPERATOR_VERSION = "sagrada-linter/0.1"
 
 

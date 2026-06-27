@@ -166,6 +166,43 @@ def test_history_follows_renames():
     assert len(ev) == 1 and ev[0].term == "db_engine"
 
 
+def test_explicit_missing_path_is_error_not_clean(tmp_path, capsys):
+    """An explicitly-named file with no history must NOT report 'coherent' or sign a receipt for a
+    file that was never checked — it is an error with a non-zero exit (the convergent-Critical)."""
+    import glob
+    from sagrada_linter.cli import main
+    r = tempfile.mkdtemp()
+    _git(r, "init", "-q")
+    open(os.path.join(r, "CLAUDE.md"), "w").write("- a: keep this real rule around\n")
+    _git(r, "add", "CLAUDE.md"); _git(r, "commit", "-q", "-m", "v1")
+    rdir = str(tmp_path / "rcpts")
+    rc = main(["scan-history", "DOES_NOT_EXIST.md", "--repo", r, "--receipt", "--receipt-dir", rdir])
+    out = capsys.readouterr()
+    assert rc != 0, "a missing explicit target must exit non-zero, not 0"
+    assert "coherent" not in (out.out + out.err).lower(), "must not claim coherence for an unscanned file"
+    assert not glob.glob(os.path.join(rdir, "*.er1.json")), "must not sign a receipt for an unchecked file"
+
+
+def test_inject_demo_ignores_hostile_git_env(tmp_path):
+    """A caller's GIT_DIR/GIT_WORK_TREE must not redirect the throwaway demo repo into their real
+    repo (e.g. when the linter runs inside a git hook). The demo runs in its own temp repo."""
+    from sagrada_linter.scanner import inject_demo
+    r = tempfile.mkdtemp()
+    _git(r, "init", "-q")
+    open(os.path.join(r, "CLAUDE.md"), "w").write("- db_engine: use PostgreSQL with a pool\n")
+    _git(r, "add", "CLAUDE.md"); _git(r, "commit", "-q", "-m", "v1")
+    hijack = str(tmp_path / "hijack.git")
+    saved = {k: os.environ.get(k) for k in ("GIT_DIR", "GIT_WORK_TREE")}
+    os.environ["GIT_DIR"], os.environ["GIT_WORK_TREE"] = hijack, str(tmp_path)
+    try:
+        ev = inject_demo(r, "CLAUDE.md")
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+    assert len(ev) == 1 and ev[0].term == "db_engine"
+    assert not os.path.exists(hijack), "demo must not create/write the caller's GIT_DIR"
+
+
 def test_check_action_emits_verifiable_receipt(tmp_path):
     """check-action: a proposed action that violates an active constraint -> HALT + a receipt
     that recomputes under the reference verifier."""

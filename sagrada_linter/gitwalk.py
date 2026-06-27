@@ -2,14 +2,29 @@
 
 Pure stdlib (``git`` subprocess only) — no network beyond git, no ML.
 """
+import os
 import subprocess
 from typing import List, Optional, Tuple
+
+# Repo-locating env vars that, if set by the caller (e.g. inside a git hook or CI), would
+# override our explicit ``git -C <path>`` and make us read/write the WRONG repository. We strip
+# them so ``-C`` is always authoritative — critical for the throwaway demo repo (a stray
+# GIT_WORK_TREE could otherwise land demo commits in the user's real repo).
+_GIT_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE",
+                      "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR")
+
+
+def git_env(**extra: str) -> dict:
+    """``os.environ`` with repo-locating vars stripped, plus any ``extra`` overrides."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_LOCATION_VARS}
+    env.update(extra)
+    return env
 
 
 def _git(repo_path: str, args: List[str]) -> Optional[str]:
     try:
         out = subprocess.run(["git", "-C", repo_path] + args,
-                             capture_output=True, text=True, check=True)
+                             capture_output=True, text=True, check=True, env=git_env())
         return out.stdout
     except subprocess.CalledProcessError:
         return None

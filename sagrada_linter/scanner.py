@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from .diff_pairing import pair_changes
-from .gitwalk import walk_file_history
+from .gitwalk import git_env, walk_file_history
 from .md_claims import extract_line_claim, strip_code_fences
 
 # AI-rule files agents actually read as instructions. Basenames + a couple of
@@ -152,7 +152,7 @@ def _candidate_rule_files(repo_path: str) -> List[str]:
     try:
         out = subprocess.run(
             ["git", "-C", repo_path, "log", "--all", "--pretty=format:", "--name-only"],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, check=True, env=git_env(),
         ).stdout
     except subprocess.CalledProcessError:
         return []
@@ -201,8 +201,10 @@ def scan_repo(repo_path: str, paths: Optional[List[str]] = None) -> Dict[str, Li
 # --- demo injection --------------------------------------------------------
 
 def _git(repo: str, args: List[str], env: Optional[dict] = None) -> None:
+    # Default to a scrubbed env so EVERY git call (incl. `init`) honours `-C repo` rather than a
+    # caller's ambient GIT_DIR/GIT_WORK_TREE — otherwise the demo's init lands in the wrong repo.
     subprocess.run(["git", "-C", repo] + args, check=True,
-                   capture_output=True, text=True, env=env)
+                   capture_output=True, text=True, env=env if env is not None else git_env())
 
 
 def _first_claim_line(content: str) -> Optional[int]:
@@ -235,9 +237,10 @@ def inject_demo(repo_path: str, file_path: str) -> List[ZombieEvent]:
     v3 = v1                                                # re-add it (zombie)
 
     base = os.path.basename(file_path) or "RULES.md"
-    env = dict(os.environ,
-               GIT_AUTHOR_NAME="demo", GIT_AUTHOR_EMAIL="demo@local",
-               GIT_COMMITTER_NAME="demo", GIT_COMMITTER_EMAIL="demo@local")
+    # git_env() strips GIT_DIR/GIT_WORK_TREE/etc. so the demo commits land in the throwaway
+    # repo, never the caller's real repo (e.g. when run inside a git hook).
+    env = git_env(GIT_AUTHOR_NAME="demo", GIT_AUTHOR_EMAIL="demo@local",
+                  GIT_COMMITTER_NAME="demo", GIT_COMMITTER_EMAIL="demo@local")
     tmp = tempfile.mkdtemp(prefix="sagrada-demo-")
     try:
         _git(tmp, ["init", "-q"])
