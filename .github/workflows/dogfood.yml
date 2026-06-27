@@ -33,5 +33,8 @@ jobs:
           python-version: "3.x"
       - name: Install the linter (this repo's code)
         run: pip install .
-      - name: Show the catch fire — plant a zombie in a throwaway copy of AGENTS.md
-        run: sagrada-linter scan-history --inject-demo AGENTS.md
+      - name: Show the catch fire — plant a zombie and assert it's caught
+        run: |
+          out=$(sagrada-linter scan-history --inject-demo AGENTS.md)
+          echo "$out"
+          echo "$out" | grep -q "zombie-prompt event" || { echo "::error::inject-demo did not catch the planted zombie"; exit 1; }
