@@ -1,0 +1,7 @@
+# We dogfood our own pre-commit hook: this repo blocks a zombie prompt in its own rule files
+# (AGENTS.md) before it can land. Try it with `pre-commit run --all-files`.
+repos:
+  - repo: https://github.com/Cruxia-Labs/sagrada-linter
+    rev: v0.1.0
+    hooks:
+      - id: sagrada-linter

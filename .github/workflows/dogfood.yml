@@ -1,0 +1,37 @@
+name: Dogfood
+
+# We run our own linter on our own rule files (AGENTS.md) on every push — the determinism we sell,
+# applied to ourselves. `self-scan` is the Action's first real exercise (uses: ./); `firing-demo`
+# shows the catch actually fire on a planted zombie.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write   # the Action posts a result comment on PRs (skipped on push)
+
+jobs:
+  self-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so scan-history can read AGENTS.md's revisions
+      - name: Lint our own rule files with our own Action
+        uses: ./
+        with:
+          paths: AGENTS.md
+
+  firing-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install the linter (this repo's code)
+        run: pip install .
+      - name: Show the catch fire — plant a zombie in a throwaway copy of AGENTS.md
+        run: sagrada-linter scan-history --inject-demo AGENTS.md
