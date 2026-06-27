@@ -3,7 +3,7 @@
 **Catch the AI rules you already changed before they break your build — a local linter for your `.cursorrules`, `CLAUDE.md`, and `AGENTS.md`.**
 
 [![CI](https://github.com/Cruxia-Labs/sagrada-linter/actions/workflows/ci.yml/badge.svg)](https://github.com/Cruxia-Labs/sagrada-linter/actions)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/LICENSE)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen)](#pre-commit)
 
 Your agent keeps acting on rules you already changed. You retract a guideline in
@@ -14,7 +14,7 @@ These are **zombie prompts**, and they're invisible to a snapshot — they only 
 
 Sagrada Linter reads that history and catches them.
 
-<p align="center"><img src="media/scan_hero.gif" alt="Running sagrada-linter scan-history on a repo: it reports a rule (test_runner) that was retracted in one commit and re-added in a later one, with the file:line and both commit hashes." width="840"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.1.0/media/scan_hero.gif" alt="Running sagrada-linter scan-history on a repo: it reports a rule (test_runner) that was retracted in one commit and re-added in a later one, with the file:line and both commit hashes." width="840"></p>
 
 ## Try it on your own repo (30 seconds, nothing installed)
 
@@ -57,7 +57,7 @@ it flags something, it's because the bytes say so.
   a fuzzier problem; it is **not** part of the deterministic check and never fails your build.
 - **Imperative free-prose** rules with no `key: value` shape (e.g. `- Use type annotations`).
   The deterministic floor anchors on structured rules (`key: value`, `- term — definition`); it
-  refuses to guess at prose rather than risk a false positive. (Measured: see [BENCHMARKS.md](BENCHMARKS.md).)
+  refuses to guess at prose rather than risk a false positive. (Measured: see [BENCHMARKS.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/BENCHMARKS.md).)
 
 This honesty is the point: the deterministic catch is small and sharp, and you can trust every
 result because the tool never pretends to know more than the diff does.
@@ -90,7 +90,7 @@ repos:
 ## GitHub Action
 
 Catch zombies on every PR, with a comment on the offending line. See
-[docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md):
+[docs/GITHUB_ACTION.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/docs/GITHUB_ACTION.md):
 
 ```yaml
 - uses: actions/checkout@v4
@@ -113,7 +113,7 @@ node er1_verify.mjs .sagrada/receipts/*.er1.json
 ```
 
 The receipt format is **ER1** — open, and built so the verifier is the simple part: see
-[SCOPE_OF_CERTIFICATION.md](SCOPE_OF_CERTIFICATION.md) for exactly what is certified and what is not.
+[SCOPE_OF_CERTIFICATION.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/SCOPE_OF_CERTIFICATION.md) for exactly what is certified and what is not.
 
 ## In your agent — decision-time receipts
 
@@ -144,7 +144,7 @@ so a relying party never has to trust the agent that produced it.
 
 ## License
 
-Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome — see [CONTRIBUTING.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/CONTRIBUTING.md).
 
 
 ---

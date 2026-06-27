@@ -12,9 +12,25 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "Mars Ausili", email = "mars@cruxia.ai" }]
 keywords = ["ai", "agents", "cursorrules", "linter", "pre-commit", "prompt", "coherence"]
 dependencies = ["cryptography>=41"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Version Control :: Git",
+]
 
 [project.urls]
 Homepage = "https://github.com/Cruxia-Labs/sagrada-linter"
+Repository = "https://github.com/Cruxia-Labs/sagrada-linter"
+Issues = "https://github.com/Cruxia-Labs/sagrada-linter/issues"
 
 [project.scripts]
 sagrada-linter = "sagrada_linter.cli:main"
