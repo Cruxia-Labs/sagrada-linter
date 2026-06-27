@@ -33,7 +33,12 @@ def _cmd_scan_history(args) -> int:
                 return 2
             target = on_disk[0]
         events = inject_demo(repo_root, target)
-        by_file = {target: events} if events else {}
+        if not events:
+            print(f"could not plant a demo in '{target}': found no structured rule "
+                  f"(`key: value` or `- term — definition`) to retract and re-add. Point "
+                  f"--inject-demo at a file with structured rules, e.g. CLAUDE.md.", file=sys.stderr)
+            return 2
+        by_file = {target: events}
         scanned = []
     else:
         if not targets:

@@ -68,9 +68,9 @@ result because the tool never pretends to know more than the diff does.
 ## Install
 
 ```bash
-uvx sagrada-linter           # zero-install run (recommended)
-pipx install sagrada-linter  # persistent CLI
-pip install sagrada-linter   # into the current environment
+uvx sagrada-linter scan-history .   # zero-install run (recommended)
+pipx install sagrada-linter         # persistent CLI
+pip install sagrada-linter          # into the current environment
 ```
 
 Python 3.9+. One dependency (`cryptography`). Runs fully offline.

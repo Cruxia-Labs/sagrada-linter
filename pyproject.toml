@@ -13,7 +13,7 @@ authors = [{ name = "Mars Ausili", email = "mars@cruxia.ai" }]
 keywords = ["ai", "agents", "cursorrules", "linter", "pre-commit", "prompt", "coherence"]
 dependencies = ["cryptography>=41"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -39,4 +39,6 @@ sagrada-linter = "sagrada_linter.cli:main"
 packages = ["sagrada_linter"]
 
 [tool.setuptools.package-data]
-sagrada_linter = ["er1_verify.mjs", "golden_vectors.json"]
+# er1_verify.py is a package module (auto-included); listed explicitly so the bundled-verifier
+# guarantee is visible in the manifest and not mistaken for missing.
+sagrada_linter = ["er1_verify.py", "er1_verify.mjs", "golden_vectors.json"]
