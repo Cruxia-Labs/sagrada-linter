@@ -18,6 +18,10 @@ inputs:
     description: "Fail the check when a zombie prompt is found."
     required: false
     default: "true"
+  vitals:
+    description: "Also compute the 0-100 belief-integrity score (SAGRADA-VITALS-METHOD v0.1) and publish it to the job summary + a badge artifact."
+    required: false
+    default: "true"
 
 runs:
   using: "composite"
@@ -56,6 +60,30 @@ runs:
         echo "exit_code=$code" >> "$GITHUB_OUTPUT"
         echo "----- sagrada comment -----"
         cat "$RUNNER_TEMP/sagrada-comment.md"
+
+    - name: Belief-integrity score (Vitals)
+      if: ${{ inputs.vitals == 'true' }}
+      shell: bash
+      run: |
+        set -e
+        # Frozen method (v0.1): deterministic, record-side, offline. The badge JSON is a
+        # shields.io endpoint file; publish it wherever your badge points (artifact here).
+        sagrada-linter vitals --badge-out "$RUNNER_TEMP/belief-badge.json" \
+          | tee "$RUNNER_TEMP/sagrada-vitals.txt"
+        {
+          echo '### belief-integrity'
+          echo '```'
+          cat "$RUNNER_TEMP/sagrada-vitals.txt"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload belief-integrity badge
+      if: ${{ inputs.vitals == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: belief-integrity-badge
+        path: ${{ runner.temp }}/belief-badge.json
+        if-no-files-found: ignore
 
     - name: Upload ER1 receipts
       uses: actions/upload-artifact@v4

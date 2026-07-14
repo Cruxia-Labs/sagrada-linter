@@ -127,6 +127,35 @@ def _cmd_check_action(args) -> int:
     return 1 if (args.strict and verdict == "HALT") else 0
 
 
+def _cmd_vitals(args) -> int:
+    import json as _json
+
+    from .vitals import badge_json, vitals_for_repo
+
+    paths = list(args.paths) or None
+    result = vitals_for_repo(args.repo, paths=paths, window_days=args.window_days)
+    if args.badge_out:
+        with open(args.badge_out, "w", encoding="utf-8") as f:
+            _json.dump(badge_json(result["score"]), f, indent=2)
+            f.write("\n")
+    if args.json:
+        print(_json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    inp = result["inputs"]
+    print(f"belief-integrity: {result['score']} / 100  ({result['band']})")
+    print(f"  method: {result['method']}  ·  window: {inp['window_days']}d  ·  "
+          f"snapshot: {result['snapshot_commit'][:8]}")
+    print(f"  inputs: active zombies={inp['a']}  revivals={inp['e']}  "
+          f"deaths={inp['d']}  clean deaths={inp['c']}  reconciliation r={inp['r']:.2f}")
+    for z in result["active_zombies"]:
+        print(f"  ✗ ACTIVE  {z['file']}  {z['term']}  "
+              f"(retracted {z['retracted_at'][:8]}, revived {z['revived_at'][:8]})")
+    if not result["files_scanned"]:
+        print("  (no rule files with git history found — nothing to score)")
+    print(f"  not measured: {result['not_measured']}")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         prog="sagrada-linter",
@@ -164,6 +193,18 @@ def main(argv=None) -> int:
     ca.add_argument("--json", action="store_true", help="Print the full receipt as JSON.")
     ca.add_argument("--strict", action="store_true", help="Exit non-zero on HALT (for CI / a hard gate).")
     ca.set_defaults(func=_cmd_check_action)
+
+    vt = sub.add_parser("vitals",
+                        help="Compute the 0-100 belief-integrity score (SAGRADA-VITALS-METHOD v0.1, frozen).")
+    vt.add_argument("paths", nargs="*",
+                    help="Rule file(s) to score; omit to auto-discover in --repo.")
+    vt.add_argument("--repo", "-r", default=".", help="Git repo to score (default: current dir).")
+    vt.add_argument("--window-days", type=int, default=365,
+                    help="Trailing evaluation window (method default: 365).")
+    vt.add_argument("--json", action="store_true", help="Output the full result as JSON.")
+    vt.add_argument("--badge-out", default=None,
+                    help="Write a shields.io endpoint JSON badge to this path.")
+    vt.set_defaults(func=_cmd_vitals)
 
     args = p.parse_args(argv)
     return args.func(args)
