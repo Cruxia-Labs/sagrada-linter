@@ -14,6 +14,8 @@ never reaches this path (the conflict predicate only gates ``deterministic`` bel
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Tuple
 
 from .canonical import canonical_json
@@ -52,15 +54,42 @@ def build_check_receipt(
     return g.preflight(beliefs, action)
 
 
-def write_receipt(receipt: dict, receipts_dir: str) -> str:
-    """Write a receipt to ``receipts_dir`` as ``<receipt_id>.er1.json``.
+def _slug(s: str) -> str:
+    """Filesystem-safe slug: path separators and anything exotic become ``-``."""
+    s = s.replace(os.sep, "-").replace("/", "-")
+    s = re.sub(r"[^A-Za-z0-9_-]+", "-", s)
+    return re.sub(r"-{2,}", "-", s).strip("-") or "x"
+
+
+def receipt_filename(repo_root: str, file_path: str, receipt: dict) -> str:
+    """Speakable receipt name: ``<repo>-<file>-<week>-<shortid>.er1.json``.
+
+    A stranger listing ``.sagrada/receipts/`` should see WHAT was certified and WHEN
+    (ISO week), not a bare UUID. The short receipt-id suffix keeps names unique.
+    """
+    repo = _slug(os.path.basename(os.path.abspath(repo_root)))
+    week = datetime.now(timezone.utc).strftime("%G-W%V")
+    rid = str(receipt.get("receipt_id", "receipt")).replace("-", "")[:8] or "receipt"
+    return f"{repo}-{_slug(file_path)}-{week}-{rid}.er1.json"
+
+
+def write_receipt(receipt: dict, receipts_dir: str, filename: Optional[str] = None) -> str:
+    """Write a receipt to ``receipts_dir`` (default name ``<receipt_id>.er1.json``).
 
     Written as **canonical JSON bytes** (RFC 8785) — byte-for-byte the form a verifier
     hashes — so the on-disk file and the verified claim cannot diverge. Returns the path.
+    A name collision never overwrites: a numeric suffix is added instead.
     """
     os.makedirs(receipts_dir, exist_ok=True)
-    rid = receipt.get("receipt_id", "receipt")
-    path = os.path.join(receipts_dir, f"{rid}.er1.json")
+    if filename is None:
+        rid = receipt.get("receipt_id", "receipt")
+        filename = f"{rid}.er1.json"
+    path = os.path.join(receipts_dir, filename)
+    stem = filename[:-len(".er1.json")] if filename.endswith(".er1.json") else filename
+    n = 2
+    while os.path.exists(path):
+        path = os.path.join(receipts_dir, f"{stem}-{n}.er1.json")
+        n += 1
     with open(path, "wb") as fh:
         fh.write(canonical_json(receipt))
     return path
@@ -88,8 +117,10 @@ def emit_for_events(
             (e.term, e.re_added_def, e.retracted_at, e.re_added_at) for e in events
         ]
         receipt = build_check_receipt(f, zlist, gate=g)
-        paths.append(write_receipt(receipt, receipts_dir))
+        paths.append(write_receipt(receipt, receipts_dir,
+                                   filename=receipt_filename(repo_path, f, receipt)))
     return paths
 
 
-__all__ = ["Zombie", "build_check_receipt", "write_receipt", "emit_for_events"]
+__all__ = ["Zombie", "build_check_receipt", "receipt_filename", "write_receipt",
+           "emit_for_events"]

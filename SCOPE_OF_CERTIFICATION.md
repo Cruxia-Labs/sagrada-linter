@@ -31,7 +31,7 @@ what it concluded — it does not vouch for your rules.
 
 ## What is _certified_ (deterministic — can fail your build)
 
-- **Zombie prompts: a retracted rule re-added.** A rule that was removed in one commit and
+- **Zombie beliefs: a retracted (dead) rule re-added.** A rule that was removed in one commit and
   re-introduced in a later commit. This is read straight off the git diff — no model, no
   inference. In the receipt this is recorded as a `BANNED_ENTITY` conflict: a retracted rule is
   treated as *excluded from the live rule set*, so re-introducing it is a conflict the verifier

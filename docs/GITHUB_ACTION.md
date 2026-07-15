@@ -22,7 +22,7 @@ permissions:
   pull-requests: write    # post the result comment
 
 jobs:
-  zombie-prompts:
+  zombie-beliefs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,4 +53,4 @@ jobs:
 |---|---|---|
 | `paths` | _(auto-discover)_ | Space-separated rule files to scan. |
 | `comment` | `true` | Post a PR comment with the result. |
-| `fail-on-zombie` | `true` | Fail the check when a zombie prompt is found. |
+| `fail-on-zombie` | `true` | Fail the check when a zombie belief is found. |

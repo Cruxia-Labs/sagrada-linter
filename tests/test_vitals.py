@@ -135,3 +135,76 @@ def test_collect_record_snapshot_pins_head(repo):
                           capture_output=True, text=True).stdout.strip()
     assert rec.snapshot_commit == head
     assert ("AGENTS.md", "db_target") in rec.final_presence
+
+
+# ---- SAGRADA-VITALS-METHOD v0.2 accounting (detector review W29) ----
+
+def _mk_repo_v2(tmp_path, script):
+    """script: list of CLAUDE.md contents, committed in order."""
+    import subprocess
+    repo = tmp_path / "r"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    import os
+    env = {**os.environ, **env}
+    for i, content in enumerate(script):
+        (repo / "CLAUDE.md").write_text(content)
+        subprocess.run(["git", "add", "."], cwd=repo, env=env, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", f"c{i}",
+                        "--date", f"2026-01-{i+1:02d}T12:00:00"],
+                       cwd=repo, env={**env,
+                                      "GIT_COMMITTER_DATE": f"2026-01-{i+1:02d}T12:00:00"},
+                       check=True)
+    return repo
+
+
+def test_v02_active_dedup_oscillation(tmp_path):
+    """A term that oscillates twice is ONE active zombie, not two (ghostty case)."""
+    rule = "build: zig build lib\n"
+    other = "keep: yes\n"
+    repo = _mk_repo_v2(tmp_path, [
+        other + rule, other, other + rule,   # retract + revive #1
+        other, other + rule,                 # retract + revive #2 (still present)
+    ])
+    result = vitals_for_repo(str(repo))
+    assert result["inputs"]["a"] == 1
+    assert len(result["active_zombies"]) == 1
+
+
+def test_v02_churn_collapse(tmp_path):
+    """>=3 terms swapping in one commit pair = one churn event (kilocode case)."""
+    block = ("build: run the full build pipeline\n"
+             "test: run the integration suite\n"
+             "deploy: staging environment only\n"
+             "review: two approvals required\n")
+    repo = _mk_repo_v2(tmp_path, [
+        block,                            # born
+        "keep: this line stays here\n",   # mass retraction (one commit)
+        block,                            # mass re-add (one commit) — file swap
+    ])
+    result = vitals_for_repo(str(repo))
+    inp = result["inputs"]
+    assert inp["a"] == 1, f"churn must collapse to one active, got {inp['a']}"
+    assert inp["e"] == 1, f"churn must collapse to one event, got {inp['e']}"
+    churn = [z for z in result["active_zombies"] if z.get("churn")]
+    assert churn and churn[0]["members"] >= 3
+
+
+def test_v02_head_window_anchor(tmp_path):
+    """Window ends at repo HEAD, not the newest rule-file commit (F7)."""
+    import subprocess, os
+    repo = _mk_repo_v2(tmp_path, ["rule: x\n"])
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    (repo / "code.py").write_text("pass\n")
+    subprocess.run(["git", "add", "."], cwd=repo, env=env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "later non-rule commit",
+                    "--date", "2026-06-01T12:00:00"],
+                   cwd=repo, env={**env, "GIT_COMMITTER_DATE": "2026-06-01T12:00:00"},
+                   check=True)
+    rec = collect_record(str(repo))
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo,
+                          capture_output=True, text=True).stdout.strip()
+    assert rec.snapshot_commit == head

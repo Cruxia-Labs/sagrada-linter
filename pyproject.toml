@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sagrada-linter"
 version = "0.2.0"
-description = "Catch zombie prompts — retracted AI rules that crept back into your .cursorrules / CLAUDE.md / AGENTS.md — with a verifiable receipt."
+description = "Catch zombie beliefs — dead rules that crept back into your .cursorrules / CLAUDE.md / AGENTS.md — with a verifiable receipt."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }

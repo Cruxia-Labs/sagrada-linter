@@ -37,4 +37,4 @@ jobs:
         run: |
           out=$(sagrada-linter scan-history --inject-demo AGENTS.md)
           echo "$out"
-          echo "$out" | grep -q "zombie-prompt event" || { echo "::error::inject-demo did not catch the planted zombie"; exit 1; }
+          echo "$out" | grep -q "zombie belief" || { echo "::error::inject-demo did not catch the planted zombie"; exit 1; }

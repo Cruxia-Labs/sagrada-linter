@@ -1,8 +1,8 @@
-"""Zombie-prompt scanner — the cold-conversion hero of the Sagrada Linter.
+"""Zombie-belief scanner — the cold-conversion hero of the Sagrada Linter.
 
 Walk a git repo's history of an AI-rule file (``.cursorrules`` / ``CLAUDE.md`` /
-``AGENTS.md`` / system prompts) and deterministically detect **zombie prompt**
-events: a rule that was RETRACTED in one commit and RE-ADDED in a later commit —
+``AGENTS.md`` / system prompts) and deterministically detect **zombie belief**
+events: a dead rule — RETRACTED in one commit — that was RE-ADDED in a later commit —
 the "your agent is acting on a rule you already changed" failure, made measurable
 on the user's OWN history with no setup.
 
@@ -26,7 +26,9 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from .diff_pairing import pair_changes
@@ -66,10 +68,21 @@ class ZombieEvent:
     re_added_line: Optional[int]      # 1-based line in the re-adding version
     re_added_def: str                 # its definition on re-add
     changed_meaning: bool             # re-added text differs from the retracted text
+    retracted_ts: int = 0             # unix time of the retracting commit (0 = unknown)
+    re_added_ts: int = 0              # unix time of the re-adding commit (0 = unknown/worktree)
 
     def location(self) -> str:
         ln = f":{self.re_added_line}" if self.re_added_line is not None else ""
         return f"{self.file}{ln}"
+
+    def days_undead(self, now: Optional[int] = None) -> Optional[int]:
+        """Whole days this zombie has been walking (re-add -> now), from the
+        re-adding commit's own timestamp. ``None`` when the timestamp is unknown
+        (e.g. a worktree pseudo-commit)."""
+        if self.re_added_ts <= 0:
+            return None
+        now = int(time.time()) if now is None else now
+        return max(0, (now - self.re_added_ts) // 86400)
 
 
 def scan_history_for_zombies(repo_path: str, file_path: str,
@@ -94,23 +107,23 @@ def scan_history_for_zombies(repo_path: str, file_path: str,
                 content = None
             if content is not None and (not versions or versions[-1][2] != content):
                 versions = list(versions) + [("WORKTREE", 0, content)]
-    # term -> (retract_commit, retract_def); present IFF the term is currently retracted.
-    retracted: Dict[str, Tuple[str, str]] = {}
+    # term -> (retract_commit, retract_def, retract_ts); present IFF the term is currently retracted.
+    retracted: Dict[str, Tuple[str, str, int]] = {}
     events: List[ZombieEvent] = []
     prev = ""
-    for commit, _ts, content in versions:
+    for commit, ts, content in versions:
         cur = strip_code_fences(content)
         for ch in pair_changes(prev, cur):
             if ch.kind == "remove" and ch.old_claim is not None:
-                retracted[ch.old_claim[0]] = (commit, ch.old_claim[1])
+                retracted[ch.old_claim[0]] = (commit, ch.old_claim[1], ts)
             elif ch.kind == "add" and ch.new_claim is not None:
-                _record_revival(ch.new_claim, ch.new_line, ch.new_line_no, commit,
+                _record_revival(ch.new_claim, ch.new_line, ch.new_line_no, commit, ts,
                                 file_path, retracted, events)
             elif ch.kind == "change" and ch.new_claim is not None:
                 # A same-term revise keeps the term live. But a RENAME (different new term)
                 # can bring a previously-retracted term back to life on the NEW side, so
                 # treat the new claim as a potential re-add too.
-                _record_revival(ch.new_claim, ch.new_line, ch.new_line_no, commit,
+                _record_revival(ch.new_claim, ch.new_line, ch.new_line_no, commit, ts,
                                 file_path, retracted, events)
                 if ch.old_claim is not None:
                     retracted.pop(ch.old_claim[0], None)
@@ -122,7 +135,7 @@ def scan_history_for_zombies(repo_path: str, file_path: str,
 ALLOW_MARKER = "sagrada:allow"
 
 
-def _record_revival(new_claim, new_line, new_line_no, commit, file_path, retracted, events):
+def _record_revival(new_claim, new_line, new_line_no, commit, ts, file_path, retracted, events):
     """Emit a zombie if ``new_claim``'s term was retracted in an EARLIER commit.
 
     Skips (a) terms not currently retracted, (b) same-commit rewords (a rewrite, not a
@@ -134,7 +147,7 @@ def _record_revival(new_claim, new_line, new_line_no, commit, file_path, retract
         return
     if new_line and ALLOW_MARKER in new_line:
         return
-    r_commit, r_def = prior
+    r_commit, r_def, r_ts = prior
     events.append(ZombieEvent(
         file=file_path,
         term=term,
@@ -144,6 +157,8 @@ def _record_revival(new_claim, new_line, new_line_no, commit, file_path, retract
         re_added_line=new_line_no,
         re_added_def=new_claim[1],
         changed_meaning=(r_def.strip() != new_claim[1].strip()),
+        retracted_ts=r_ts,
+        re_added_ts=ts,
     ))
 
 
@@ -256,16 +271,26 @@ def inject_demo(repo_path: str, file_path: str) -> List[ZombieEvent]:
 
 # --- formatting ------------------------------------------------------------
 
+def _iso_date(ts: int) -> str:
+    """UTC date (YYYY-MM-DD) of a commit timestamp; '' when unknown."""
+    if ts <= 0:
+        return ""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+
+
 def format_events(by_file: Dict[str, List[ZombieEvent]], *, color: bool = False,
                   n_scanned: Optional[int] = None) -> str:
     """Human-readable scan report. ``color`` adds ANSI for terminals.
+
+    Findings render in AMBER — a zombie belief is information (a contradiction in the
+    record), never a tool error; red stays reserved for the tool itself failing.
 
     ``n_scanned`` is how many rule files were actually scanned (``None`` = unknown / demo). When
     it is 0 we say *nothing was checked* rather than claiming coherence — finding no rule files
     is not the same as finding clean ones.
     """
-    def red(s: str) -> str:
-        return f"\033[31m{s}\033[0m" if color else s
+    def amber(s: str) -> str:
+        return f"\033[33m{s}\033[0m" if color else s
 
     def dim(s: str) -> str:
         return f"\033[2m{s}\033[0m" if color else s
@@ -276,16 +301,23 @@ def format_events(by_file: Dict[str, List[ZombieEvent]], *, color: bool = False,
             return ("No rule files found to scan (looked for CLAUDE.md / .cursorrules / AGENTS.md "
                     "and friends). Nothing was checked — pass a path explicitly if your rules live "
                     "elsewhere, e.g. `sagrada-linter scan-history path/to/rules.md`.")
-        return "0 zombie-prompt events found. Your rule files are coherent over time. ✓"
+        return "0 zombie beliefs found. Your rule files are coherent over time. ✓"
 
-    lines = [red(f"{total} zombie-prompt event(s) found") +
-             " — a rule was retracted, then re-added later:\n"]
+    lines = [amber(f"{total} zombie belief(s) found") +
+             " — a dead rule was retracted, then re-added later:\n"]
     for f in sorted(by_file):
         for ev in by_file[f]:
-            verb = "re-added (meaning changed)" if ev.changed_meaning else "re-added"
-            lines.append(f"  {red('✗')} {ev.location()}  {ev.term}")
-            lines.append(dim(f"      retracted {ev.retracted_at[:8]}: {ev.retracted_def[:72]}"))
-            lines.append(dim(f"      {verb} {ev.re_added_at[:8]}: {ev.re_added_def[:72]}"))
+            days = ev.days_undead()
+            undead = f" — undead {days} day{'s' if days != 1 else ''}" if days is not None else ""
+            r_date = _iso_date(ev.retracted_ts)
+            a_date = _iso_date(ev.re_added_ts)
+            retracted = f"retracted {ev.retracted_at[:8]}" + (f" {r_date}" if r_date else "")
+            re_added = f"re-added {ev.re_added_at[:8]}" + (f" {a_date}" if a_date else "")
+            verb = "now says (meaning changed)" if ev.changed_meaning else "says again"
+            lines.append(f"  {amber('✗')} {ev.location()} {ev.term}{undead} "
+                         f"({retracted} → {re_added})")
+            lines.append(dim(f"      retracted: {ev.retracted_def[:72]}"))
+            lines.append(dim(f"      {verb}: {ev.re_added_def[:72]}"))
             lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -304,16 +336,16 @@ def format_github_comment(by_file: Dict[str, List[ZombieEvent]]) -> str:
     total = sum(len(v) for v in by_file.values())
     if total == 0:
         return (
-            "### 🟢 Sagrada Linter — no zombie prompts\n\n"
+            "### 🟢 Sagrada Linter — no zombie beliefs\n\n"
             "No retracted rule was re-introduced in this change. Your `.cursorrules` / "
             "`CLAUDE.md` / `AGENTS.md` are coherent over time."
         )
     plural = "s" if total != 1 else ""
     lines = [
-        f"### 🔴 Sagrada Linter — {total} zombie prompt{plural} detected",
+        f"### 🟡 Sagrada Linter — {total} zombie belief{plural} detected",
         "",
-        "A rule that was **retracted** has been **re-added** — your agent may act on "
-        "guidance you already changed.",
+        "A dead rule — one that was **retracted** — has been **re-added**; your agent may "
+        "act on guidance you already changed.",
         "",
     ]
     for f in sorted(by_file):

@@ -1,5 +1,5 @@
 name: "Sagrada Linter"
-description: "Catch zombie prompts — retracted rules re-added to your .cursorrules / CLAUDE.md / AGENTS.md — and attach a verifiable ER1 receipt."
+description: "Catch zombie beliefs — dead rules re-added to your .cursorrules / CLAUDE.md / AGENTS.md — and attach a verifiable ER1 receipt."
 author: "Cruxia-Labs"
 branding:
   icon: "shield"
@@ -15,7 +15,7 @@ inputs:
     required: false
     default: "true"
   fail-on-zombie:
-    description: "Fail the check when a zombie prompt is found."
+    description: "Fail the check when a zombie belief is found."
     required: false
     default: "true"
   vitals:
@@ -37,7 +37,7 @@ runs:
       # the version you get is exactly the action ref you pinned (no supply-chain substitution).
       run: pip install "$GITHUB_ACTION_PATH"
 
-    - name: Scan rule-file history for zombie prompts
+    - name: Scan rule-file history for zombie beliefs
       id: scan
       shell: bash
       env:
@@ -110,5 +110,5 @@ runs:
       if: ${{ inputs.fail-on-zombie == 'true' && steps.scan.outputs.exit_code != '0' }}
       shell: bash
       run: |
-        echo "::error::Sagrada Linter: a retracted rule was re-added (zombie prompt). See the PR comment and the ER1 receipt artifact."
+        echo "::error::Sagrada Linter: a retracted rule was re-added (zombie belief). See the PR comment and the ER1 receipt artifact."
         exit 1

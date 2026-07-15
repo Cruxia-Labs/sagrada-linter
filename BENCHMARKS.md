@@ -30,7 +30,7 @@ sagrada-linter scan-history .
 
 Repos with rule files: `openai/openai-agents-python`, `browser-use/browser-use`,
 `princeton-nlp/SWE-agent`, `modelcontextprotocol/servers`. (Most repos we tried simply
-don't keep these files at standard paths yet — zombie prompts are real but not yet common
+don't keep these files at standard paths yet — zombie beliefs are real but not yet common
 in well-maintained OSS.)
 
 ## Precision: 0 false positives across 43 revisions

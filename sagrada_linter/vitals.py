@@ -1,13 +1,14 @@
-"""Vitals — the 0-100 belief-integrity score (SAGRADA-VITALS-METHOD v0.1, FROZEN).
+"""Vitals — the 0-100 belief-integrity score (SAGRADA-VITALS-METHOD v0.2, FROZEN).
 
 Record-side only: computed deterministically from the repo's own git history via the
 same primitives as the zombie scanner (walk_file_history -> pair_changes ->
 extract_line_claim). No model, no network, no judgment call anywhere in the number.
 
 The method is FROZEN — weights, inputs, window, rounding, and bands are fixed by
-SAGRADA-VITALS-METHOD v0.1 (hash below, Ed25519 freeze receipt in the method repo).
-Any change here that alters a score is a method change and MUST ship as v0.2+ with a
-public changelog. The revival semantics deliberately mirror ``scanner.py`` verbatim:
+SAGRADA-VITALS-METHOD v0.2 (hash below; v0.2 = v0.1 formula with corrected event
+accounting — active dedup, churn collapse, HEAD window anchor — public changelog in
+the method doc). Any change here that alters a score is a method change and MUST
+ship as v0.3+ with a public changelog. The revival semantics deliberately mirror ``scanner.py`` verbatim:
 same-commit rewords never count, ``sagrada:allow`` lines opt out, renames keep the
 old term alive.
 
@@ -25,16 +26,17 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Optional, Set, Tuple
 
 from .diff_pairing import pair_changes
-from .gitwalk import walk_file_history
+from .gitwalk import _git, walk_file_history
 from .md_claims import extract_line_claim, strip_code_fences
 from .scanner import ALLOW_MARKER, discover_rule_files
 
-METHOD_VERSION = "SAGRADA-VITALS-METHOD v0.1"
-# SHA-256 of docs/VITALS_METHOD_v0.1.md at freeze (2026-07-13); receipt:
-# results/vitals/VITALS_METHOD_v0.1.receipt.json (state_root sha256:02ebe6aa...).
-METHOD_SHA256 = "sha256:8d09871efbf6fae5d926d0372083afbdba7a5805b8960d68a1a5f3c8dff85e76"
+METHOD_VERSION = "SAGRADA-VITALS-METHOD v0.2"
+# SHA-256 of docs/VITALS_METHOD_v0.2.md at freeze (2026-07-15); chained receipt in
+# results/vitals/ (genesis = the v0.1 freeze receipt).
+METHOD_SHA256 = "sha256:f747fe9f1f6f2814aacfff1f98597f8b2c325e00e6ddcae99c6b7ad95f860aae"
 
 WINDOW_DAYS = 365
+CHURN_MIN = 3   # v0.2: >=3 same-pair revivals collapse to one churn event
 
 BANDS = (  # lower bound (inclusive) -> label; display only, never used in math.
     (90, "SOUND"),
@@ -113,8 +115,13 @@ def collect_record(repo_path: str, paths: Optional[List[str]] = None) -> VitalsR
         last_commit, last_ts, last_content = versions[-1]
         for term in _final_terms(last_content):
             rec.final_presence.add((file_path, term))
-        if last_ts > rec.snapshot_ts:
-            rec.snapshot_ts, rec.snapshot_commit = last_ts, last_commit
+    # v0.2: the window anchors to the repo's pinned HEAD, exactly as the method
+    # text says — not to the newest rule-file commit (a repo whose rule files
+    # went quiet must not be scored against a stale endpoint).
+    head = _git(repo_path, ["log", "-1", "--format=%H %ct"])
+    if head:
+        sha, _, ts = head.strip().partition(" ")
+        rec.snapshot_commit, rec.snapshot_ts = sha, int(ts or 0)
     rec.events.sort(key=lambda e: (e.ts, e.commit, e.file, e.term))
     return rec
 
@@ -143,15 +150,54 @@ def window_inputs(rec: VitalsRecord, window_days: int = WINDOW_DAYS) -> Dict[str
         return any(o.kind == kind and o.file == ev.file and o.term == ev.term
                    and (o.ts, o.commit) > (ev.ts, ev.commit) for o in in_w)
 
-    active = [ev for ev in revivals
-              if (ev.file, ev.term) in rec.final_presence and not _later("death", ev)]
-    clean = [ev for ev in deaths if not _later("revival", ev)]
+    # v0.2 accounting (method changelog items 1-2; formula untouched).
+    # Churn collapse: >=3 revivals sharing one (retraction-commit -> revival-
+    # commit) pair are ONE file-level churn event, for e and for a alike.
+    pair_groups: Dict[Tuple[str, str], List[RuleEvent]] = {}
+    for ev in revivals:
+        pair_groups.setdefault((ev.retracted_at or "", ev.commit), []).append(ev)
+    churn_pairs = {k for k, v in pair_groups.items() if len(v) >= CHURN_MIN}
+    e_count = sum(1 for k in pair_groups if k in churn_pairs) + \
+        sum(len(v) for k, v in pair_groups.items() if k not in churn_pairs)
 
-    d = len(deaths)
+    # Active dedup: one rule cannot be undead twice — latest event per
+    # (file, term); active iff that latest event is a still-present revival.
+    latest: Dict[Tuple[str, str], RuleEvent] = {}
+    for ev in revivals:
+        key = (ev.file, ev.term)
+        cur = latest.get(key)
+        if cur is None or (ev.ts, ev.commit) > (cur.ts, cur.commit):
+            latest[key] = ev
+    deduped = [ev for ev in latest.values()
+               if (ev.file, ev.term) in rec.final_presence
+               and not _later("death", ev)]
+    active_plain = [ev for ev in deduped
+                    if (ev.retracted_at or "", ev.commit) not in churn_pairs]
+    churn_groups: Dict[Tuple[str, str], List[RuleEvent]] = {}
+    for ev in deduped:
+        k = (ev.retracted_at or "", ev.commit)
+        if k in churn_pairs:
+            churn_groups.setdefault(k, []).append(ev)
+    a_count = len(active_plain) + len(churn_groups)
+
+    # Mass deaths that later revive as churn collapse to one death.
+    churn_death_commits = {k[0] for k in churn_pairs}
+    death_by_commit: Dict[str, List[RuleEvent]] = {}
+    for ev in deaths:
+        death_by_commit.setdefault(ev.commit, []).append(ev)
+    d_count, c_count = 0, 0
+    for commit, evs in death_by_commit.items():
+        if commit in churn_death_commits and len(evs) >= CHURN_MIN:
+            d_count += 1                       # one collapsed death; revived -> not clean
+        else:
+            d_count += len(evs)
+            c_count += sum(1 for ev in evs if not _later("revival", ev))
+
     return {
-        "a": len(active), "e": len(revivals), "d": d, "c": len(clean),
-        "r": (len(clean) / d) if d > 0 else 0.0,
-        "active_events": active, "window_days": window_days,
+        "a": a_count, "e": e_count, "d": d_count, "c": c_count,
+        "r": (c_count / d_count) if d_count > 0 else 0.0,
+        "active_events": active_plain, "churn_groups": churn_groups,
+        "window_days": window_days,
     }
 
 
@@ -191,6 +237,13 @@ def vitals_for_repo(repo_path: str, paths: Optional[List[str]] = None,
             {"file": ev.file, "term": ev.term, "revived_at": ev.commit,
              "retracted_at": ev.retracted_at, "ts": ev.ts}
             for ev in inp["active_events"]
+        ] + [
+            {"file": members[0].file, "term": f"(file churn ×{len(members)})",
+             "churn": True, "members": len(members),
+             "terms": sorted(ev.term for ev in members),
+             "revived_at": members[0].commit,
+             "retracted_at": members[0].retracted_at, "ts": members[0].ts}
+            for members in inp["churn_groups"].values()
         ],
         "not_measured": "agent answer correctness, code quality, security, or any "
                         "LLM output; only structured rules are tracked",

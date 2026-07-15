@@ -9,8 +9,8 @@
 Your agent keeps acting on rules you already changed. You retract a guideline in
 `.cursorrules` / `CLAUDE.md` / `AGENTS.md`, and a few edits later it creeps back in — the
 build breaks, the agent does the thing you told it to stop doing, and you can't see why.
-These are **zombie prompts**, and they're invisible to a snapshot — they only exist in the
-*history* of your rule files.
+These are **zombie beliefs** — dead rules walking — and they're invisible to a snapshot; they
+only exist in the *history* of your rule files.
 
 Sagrada Linter reads that history and catches them.
 
@@ -22,14 +22,14 @@ Sagrada Linter reads that history and catches them.
 uvx sagrada-linter scan-history .
 ```
 
-It runs over **your** git history and tells you how many zombie prompts already happened
-in your repo — with the exact `file:line` and the commit where each rule was retracted.
-No install, no signup, no API key, nothing leaves your machine. If your rule files are
-already clean, it says so:
+It runs over **your** git history and tells you how many zombie beliefs already happened
+in your repo — with the exact `file:line`, how long each one has been undead, and the
+commits where each rule was retracted and re-added. No install, no signup, no API key,
+nothing leaves your machine. If your rule files are already clean, it says so:
 
 ```console
 $ uvx sagrada-linter scan-history .
-0 zombie-prompt events found. Your rule files are coherent over time. ✓
+0 zombie beliefs found. Your rule files are coherent over time. ✓
 ```
 
 Clean history? See it fire on your own files anyway:
@@ -166,4 +166,4 @@ Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome �
 
 ---
 
-*A zombie prompt is the smallest, most checkable case of a general problem: systems that re-assert beliefs they were told to drop. The linter catches the deterministic version of that — and nothing fuzzier. It emits an ER1 receipt so the catch is something a stranger can re-verify, not something you take on trust. It's the first verb in a family. → [Cruxia-Labs](https://github.com/Cruxia-Labs)*
+*A zombie belief is the smallest, most checkable case of a general problem: systems that re-assert beliefs they were told to drop. The linter catches the deterministic version of that — and nothing fuzzier. It emits an ER1 receipt so the catch is something a stranger can re-verify, not something you take on trust. It's the first verb in a family. → [Cruxia-Labs](https://github.com/Cruxia-Labs)*

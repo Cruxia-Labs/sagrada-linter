@@ -1,4 +1,4 @@
-"""Sagrada Linter — catch zombie prompts (retracted AI rules that crept back in)."""
+"""Sagrada Linter — catch zombie beliefs (dead rules that crept back into your repo)."""
 from .scanner import (
     ZombieEvent,
     scan_history_for_zombies,
