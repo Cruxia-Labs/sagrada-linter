@@ -74,13 +74,27 @@ sagrada-linter vitals --badge-out badge.json   # shields.io endpoint JSON
 ```
 
 A deterministic 0-100 score of one repo's belief hygiene over the trailing year, computed
-under **SAGRADA-VITALS-METHOD v0.1** — a frozen, hash-committed formula (active zombies
+under **SAGRADA-VITALS-METHOD v0.2** — a frozen, hash-committed formula (active zombies
 dominate and saturate; historical revivals add a small memory penalty; retraction hygiene can
 only *reduce* penalties, never add points). Record-side only: no model, no network, no
 judgment call anywhere in the number. What it does **not** measure: whether your agent answers
 correctly, code quality, security, or anything an LLM said — 100 means "no zombie beliefs
 detectable in the record," nothing more. The GitHub Action publishes the score to the job
 summary and uploads the badge (`vitals: true`, the default).
+
+**Band names — canonical vs display.** The score falls into one of four bands. The
+*canonical* strings frozen with the method — `SOUND / WATCH / ROTTING / OVERRUN` — are what
+`--json` output, receipts, and sealed records carry, forever: every historical artifact
+recomputes byte-for-byte. What the headline and the badge *say* is the display ladder:
+
+| canonical (method, `--json`, receipts) | display (headline, badge) | meaning |
+|---|---|---|
+| `SOUND` | **CLEAR** | nothing detectable in the record — an absence-claim, not a medal |
+| `WATCH` | **EXPOSED** | at risk; attention, not yet judgment |
+| `ROTTING` | **WALKING** | dead rules are active among the living |
+| `OVERRUN` | **ROTTED** | decay complete |
+
+We renamed the display; the receipts never moved.
 
 ## Install
 

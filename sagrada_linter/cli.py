@@ -189,7 +189,8 @@ def _cmd_check_action(args) -> int:
 def _cmd_vitals(args) -> int:
     import json as _json
 
-    from .vitals import METHOD_SHA256, METHOD_VERSION, badge_json, vitals_for_repo
+    from .vitals import (METHOD_SHA256, METHOD_VERSION, badge_json, display_band,
+                         vitals_for_repo)
 
     paths = list(args.paths) or None
     repo_state = _git_repo_state(args.repo)
@@ -200,7 +201,7 @@ def _cmd_vitals(args) -> int:
     if not scored:
         # FALSE-PASS GUARD: an empty dir, a non-git dir, or a repo whose rule files have
         # no git history is UNMEASURED, not healthy. The headline must say so — a score
-        # of 100/SOUND here would hand CI (and skeptics) a perfect grade for zero evidence.
+        # of 100/CLEAR here would hand CI (and skeptics) a perfect grade for zero evidence.
         reason = {
             "none": "not a git repository — vitals reads committed history; "
                     "run inside a repo clone",
@@ -240,7 +241,7 @@ def _cmd_vitals(args) -> int:
         print(_json.dumps(result, indent=2, sort_keys=True))
         return 0
     inp = result["inputs"]
-    print(f"belief-integrity: {result['score']} / 100  ({result['band']})")
+    print(f"belief-integrity: {result['score']} / 100  ({display_band(result['band'])})")
     print(f"  method: {result['method']}  ·  window: {inp['window_days']}d  ·  "
           f"snapshot: {result['snapshot_commit'][:8]}")
     print(f"  inputs: active zombies={inp['a']}  revivals={inp['e']}  "
@@ -323,7 +324,7 @@ def main(argv=None) -> int:
     vt.add_argument("--strict", action="store_true",
                     help="Exit 3 when the repo cannot be scored (NOT SCORED — no rule files "
                          "with git history). Catches CI wired to the wrong directory; a "
-                         "NOT SCORED repo is unmeasured, never SOUND.")
+                         "NOT SCORED repo is unmeasured, never CLEAR.")
     vt.set_defaults(func=_cmd_vitals)
 
     args = p.parse_args(argv)
