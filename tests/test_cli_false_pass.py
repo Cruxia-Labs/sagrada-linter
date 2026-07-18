@@ -93,6 +93,7 @@ def test_vitals_not_scored_headline(fixture_name, request, capsys):
     assert out.startswith("NOT SCORED — no rule files with git history")
     assert "100" not in out
     assert "SOUND" not in out
+    assert "CLEAR" not in out  # the display name must not leak here either
 
 
 @pytest.mark.parametrize("fixture_name", ["non_git_dir", "empty_repo"])

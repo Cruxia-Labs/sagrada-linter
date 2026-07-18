@@ -36,6 +36,30 @@ def test_badge_json_shape():
     assert b["message"].startswith("94")
 
 
+def test_badge_speaks_display_names_not_canonical():
+    # The badge is presentation: display ladder, no gold, teal for CLEAR.
+    assert badge_json(94)["message"] == "94 (CLEAR)"
+    assert badge_json(94)["color"] == "#2C545A"
+    assert badge_json(80)["message"] == "80 (EXPOSED)"
+    assert badge_json(60)["message"] == "60 (WALKING)"
+    assert badge_json(10)["message"] == "10 (ROTTED)"
+    for score in (94, 80, 60, 10):
+        assert "#C2902E" not in badge_json(score).values()  # gold retired
+
+
+def test_display_band_maps_all_canonical_labels():
+    from sagrada_linter.vitals import BAND_DISPLAY, BANDS, display_band
+    assert {lbl for _, lbl in BANDS} == set(BAND_DISPLAY)
+    assert display_band("SOUND") == "CLEAR"
+    assert display_band("NOT SCORED") == "NOT SCORED"  # unknown passes through
+
+
+def test_canonical_band_unchanged_by_display_layer():
+    # The frozen method surface: result dicts / receipts keep canonical strings.
+    assert band(100) == "SOUND" and band(75) == "WATCH"
+    assert band(45) == "ROTTING" and band(0) == "OVERRUN"
+
+
 def _git(repo, *args, env_ts=None):
     env = dict(os.environ,
                GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t.local",

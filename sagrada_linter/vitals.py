@@ -45,6 +45,23 @@ BANDS = (  # lower bound (inclusive) -> label; display only, never used in math.
     (0, "OVERRUN"),
 )
 
+# Display names (ratified 2026-07-17). The CANONICAL strings above are frozen
+# with the method: they appear in ``--json`` output, receipts, and sealed banks
+# forever, so every historical artifact recomputes byte-for-byte. What humans
+# see — the headline line and the badge — speaks the display ladder. A renamed
+# canon would be a method change (v0.3+); a renamed display is not.
+BAND_DISPLAY = {
+    "SOUND": "CLEAR",      # an absence-claim: nothing detectable, not "good"
+    "WATCH": "EXPOSED",    # at risk; attention, not yet judgment
+    "ROTTING": "WALKING",  # dead rules are active among the living
+    "OVERRUN": "ROTTED",   # decay complete
+}
+
+
+def display_band(canonical: str) -> str:
+    """Human-facing name for a canonical band label (unknown labels pass through)."""
+    return BAND_DISPLAY.get(canonical, canonical)
+
 
 @dataclass
 class RuleEvent:
@@ -251,9 +268,14 @@ def vitals_for_repo(repo_path: str, paths: Optional[List[str]] = None,
 
 
 def badge_json(score: int) -> Dict[str, object]:
-    """shields.io endpoint JSON for the belief-integrity badge."""
-    colors = {"SOUND": "#2e7d4f", "WATCH": "#C2902E",
-              "ROTTING": "#B85C38", "OVERRUN": "#8A3F28"}
+    """shields.io endpoint JSON for the belief-integrity badge.
+
+    Colors follow the token law (no gold anywhere): CLEAR wears the teal
+    measurement voice — "the instrument found nothing," never a green medal —
+    and the found-states are one sienna, deepening with severity.
+    """
+    colors = {"SOUND": "#2C545A", "WATCH": "#C0714D",
+              "ROTTING": "#AC5230", "OVERRUN": "#8A3F28"}
     b = band(score)
     return {"schemaVersion": 1, "label": "belief-integrity",
-            "message": f"{score} ({b})", "color": colors[b]}
+            "message": f"{score} ({display_band(b)})", "color": colors[b]}
