@@ -270,11 +270,11 @@ def vitals_for_repo(repo_path: str, paths: Optional[List[str]] = None,
 def badge_json(score: int) -> Dict[str, object]:
     """shields.io endpoint JSON for the belief-integrity badge.
 
-    Colors follow the token law (no gold anywhere): CLEAR wears the teal
-    measurement voice — "the instrument found nothing," never a green medal —
-    and the found-states are one sienna, deepening with severity.
+    Colors follow the token law (no gold anywhere): CLEAR is unmarked — plain
+    ink, an absence-claim, never a medal of any color (founder-ratified
+    2026-07-18) — and the found-states are one sienna, deepening with severity.
     """
-    colors = {"SOUND": "#2C545A", "WATCH": "#C0714D",
+    colors = {"SOUND": "#4A453C", "WATCH": "#C0714D",
               "ROTTING": "#AC5230", "OVERRUN": "#8A3F28"}
     b = band(score)
     return {"schemaVersion": 1, "label": "belief-integrity",

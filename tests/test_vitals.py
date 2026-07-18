@@ -37,9 +37,10 @@ def test_badge_json_shape():
 
 
 def test_badge_speaks_display_names_not_canonical():
-    # The badge is presentation: display ladder, no gold, teal for CLEAR.
+    # The badge is presentation: display ladder, no gold, ink for CLEAR
+    # (unmarked is the healthy state — founder-ratified 2026-07-18).
     assert badge_json(94)["message"] == "94 (CLEAR)"
-    assert badge_json(94)["color"] == "#2C545A"
+    assert badge_json(94)["color"] == "#4A453C"
     assert badge_json(80)["message"] == "80 (EXPOSED)"
     assert badge_json(60)["message"] == "60 (WALKING)"
     assert badge_json(10)["message"] == "10 (ROTTED)"
