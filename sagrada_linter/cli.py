@@ -189,7 +189,7 @@ def _cmd_check_action(args) -> int:
 def _cmd_vitals(args) -> int:
     import json as _json
 
-    from .vitals import (METHOD_SHA256, METHOD_VERSION, badge_json, display_band,
+    from .vitals import (METHOD_SHA256, METHOD_VERSION, badge_json, monochrome_band,
                          vitals_for_repo)
 
     paths = list(args.paths) or None
@@ -241,7 +241,7 @@ def _cmd_vitals(args) -> int:
         print(_json.dumps(result, indent=2, sort_keys=True))
         return 0
     inp = result["inputs"]
-    print(f"belief-integrity: {result['score']} / 100  ({display_band(result['band'])})")
+    print(f"belief-integrity: {result['score']} / 100  {monochrome_band(result['band'])}")
     print(f"  method: {result['method']}  ·  window: {inp['window_days']}d  ·  "
           f"snapshot: {result['snapshot_commit'][:8]}")
     print(f"  inputs: active zombies={inp['a']}  revivals={inp['e']}  "

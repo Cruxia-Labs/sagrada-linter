@@ -1,6 +1,6 @@
 name: "Sagrada Linter"
 description: "Catch zombie beliefs — dead rules re-added to your .cursorrules / CLAUDE.md / AGENTS.md — and attach a verifiable ER1 receipt."
-author: "Cruxia-Labs"
+author: "Cruxia"
 branding:
   icon: "shield"
   color: "yellow"

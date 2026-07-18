@@ -43,9 +43,25 @@ def test_badge_speaks_display_names_not_canonical():
     assert badge_json(94)["color"] == "#4A453C"
     assert badge_json(80)["message"] == "80 (EXPOSED)"
     assert badge_json(60)["message"] == "60 (WALKING)"
-    assert badge_json(10)["message"] == "10 (ROTTED)"
+    # v1.1: the terminal band wears the ink mark ■ and the deepened fill —
+    # no other band may (grayscale/monochrome discriminability law).
+    assert badge_json(10)["message"] == "10 (■ ROTTED)"
+    assert badge_json(10)["color"] == "#6B2E1F"
+    for score in (94, 80, 60):
+        assert "■" not in badge_json(score)["message"]
     for score in (94, 80, 60, 10):
         assert "#C2902E" not in badge_json(score).values()  # gold retired
+
+
+def test_monochrome_register():
+    # MONOCHROME.md law: bracketed caps; `*` on the terminal band only;
+    # NOT SCORED is not a band and is never bracketed.
+    from sagrada_linter.vitals import monochrome_band
+    assert monochrome_band("SOUND") == "[CLEAR]"
+    assert monochrome_band("WATCH") == "[EXPOSED]"
+    assert monochrome_band("ROTTING") == "[WALKING]"
+    assert monochrome_band("OVERRUN") == "[ROTTED]*"
+    assert monochrome_band("NOT SCORED") == "NOT SCORED"
 
 
 def test_display_band_maps_all_canonical_labels():

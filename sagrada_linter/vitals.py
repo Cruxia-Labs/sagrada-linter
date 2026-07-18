@@ -63,6 +63,16 @@ def display_band(canonical: str) -> str:
     return BAND_DISPLAY.get(canonical, canonical)
 
 
+def monochrome_band(canonical: str) -> str:
+    """MONOCHROME register form (design law, 2026-07-18): bracketed caps; the
+    terminal band carries the plain-text terminal mark `*`. NOT SCORED is not
+    a band and is never bracketed."""
+    if canonical not in BAND_DISPLAY:
+        return canonical
+    name = BAND_DISPLAY[canonical]
+    return f"[{name}]*" if canonical == "OVERRUN" else f"[{name}]"
+
+
 @dataclass
 class RuleEvent:
     """One death (retraction) or revival (zombie) of a structured rule term."""
@@ -275,7 +285,8 @@ def badge_json(score: int) -> Dict[str, object]:
     2026-07-18) — and the found-states are one sienna, deepening with severity.
     """
     colors = {"SOUND": "#4A453C", "WATCH": "#C0714D",
-              "ROTTING": "#AC5230", "OVERRUN": "#8A3F28"}
+              "ROTTING": "#AC5230", "OVERRUN": "#6B2E1F"}
     b = band(score)
+    mark = "■ " if b == "OVERRUN" else ""  # terminal ink mark, ROTTED only
     return {"schemaVersion": 1, "label": "belief-integrity",
-            "message": f"{score} ({display_band(b)})", "color": colors[b]}
+            "message": f"{score} ({mark}{display_band(b)})", "color": colors[b]}
