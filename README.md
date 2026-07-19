@@ -1,4 +1,4 @@
-# Sagrada Linter
+# <img src="media/cruxia-mark.svg" width="30" alt=""> Sagrada Linter
 
 **Catch the AI rules you already changed before they break your build — a local linter for your `.cursorrules`, `CLAUDE.md`, and `AGENTS.md`.**
 
