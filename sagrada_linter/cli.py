@@ -163,6 +163,125 @@ def _cmd_verify(args) -> int:
     return subprocess.run([sys.executable, verifier] + args.receipts).returncode
 
 
+def _cmd_read(args) -> int:
+    """The staged first reading (the Communion). Scanner + optional séance +
+    optional Epitaph file + optional receipts; verdicts all upstream."""
+    from .communion import run_reading, write_epitaphs_html
+    repo_root = args.repo
+    if args.path and os.path.isdir(args.path):
+        repo_root = args.path
+    repo_state = _git_repo_state(repo_root)
+    if repo_state == "none":
+        print(NOT_A_REPO_MSG, file=sys.stderr)
+        return 2
+    if repo_state == "empty":
+        print(EMPTY_REPO_MSG)
+        return 0
+
+    scanned = discover_rule_files(repo_root)
+    by_file = {}
+    for f in scanned:
+        ev = scan_history_for_zombies(repo_root, f, include_worktree=True)
+        if ev:
+            by_file[f] = ev
+    events = [e for evs in by_file.values() for e in evs]
+
+    evidence = {}
+    if args.seance is not False and events:
+        from .seance import exonerate_all
+        sessions_root = (args.seance if isinstance(args.seance, str)
+                         else os.path.expanduser("~/.claude/projects"))
+        if os.path.isdir(sessions_root):
+            evidence = exonerate_all(events, sessions_root)
+        else:
+            print(f"note: no session transcripts at {sessions_root} — "
+                  "the reading proceeds without the seance.", file=sys.stderr)
+    # in-file paperwork acquits regardless of the séance: a current line
+    # carrying sagrada:allow is a DECLARED restoration (restore wrote it)
+    from .communion import declared_restorations
+    for key, ev_ in declared_restorations(repo_root, by_file).items():
+        evidence.setdefault(key, ev_)
+
+    run_reading(
+        repo_label=os.path.basename(os.path.abspath(repo_root)),
+        scanned=scanned, n_commits=_commit_count(repo_root),
+        by_file=by_file, evidence=evidence, order=args.order,
+        pace=0.0 if args.no_pace else 0.35,
+        color=sys.stdout.isatty(), seance_used=args.seance is not False)
+
+    receipt_note = ""
+    if args.receipt and scanned:
+        rdir = args.receipt_dir or os.path.join(repo_root, ".sagrada", "receipts")
+        gate = PreflightGate()
+        written = []
+        for f in scanned:
+            evs = by_file.get(f, [])
+            z = [(e.term, e.re_added_def, e.retracted_at, e.re_added_at) for e in evs]
+            rcpt = build_check_receipt(f, z, gate=gate)
+            written.append(write_receipt(rcpt, rdir,
+                                         filename=receipt_filename(repo_root, f, rcpt)))
+        receipt_note = f" · {len(written)} receipt(s) in {rdir}"
+        print(f"receipts: {len(written)} written to {rdir}", file=sys.stderr)
+
+    if args.html is not False and events:
+        out = args.html if isinstance(args.html, str) else os.path.join(
+            os.getcwd(), "epitaphs.html")
+        write_epitaphs_html(out, repo_label=os.path.basename(os.path.abspath(repo_root)),
+                            events=events, evidence=evidence,
+                            receipt_note=receipt_note)
+        print(f"epitaphs: {out} (self-contained, no scripts — share at will)",
+              file=sys.stderr)
+
+    from .seance import evidence_key
+    walking = [e for e in events
+               if not (evidence.get(evidence_key(e))
+                       and evidence[evidence_key(e)].verdict == "RESTORATION")]
+    return 1 if (args.strict and walking) else 0
+
+
+def _cmd_restore(args) -> int:
+    """Declare a restoration: the sanctioned way to bring a dead rule back.
+    Appends the sagrada:allow marker with the reason (dated) and records the
+    decision in .sagrada/restorations.jsonl — the paperwork that separates
+    a rehire from a ghost."""
+    import datetime as _dt
+    from .scanner import ALLOW_MARKER
+    target = os.path.join(args.repo, args.file)
+    try:
+        lines = open(target, encoding="utf-8").read().splitlines(keepends=True)
+    except OSError as exc:
+        print(f"cannot read {target}: {exc}", file=sys.stderr)
+        return 2
+    if not (1 <= args.line <= len(lines)):
+        print(f"{args.file} has {len(lines)} lines — no line {args.line}",
+              file=sys.stderr)
+        return 2
+    idx = args.line - 1
+    if ALLOW_MARKER in lines[idx]:
+        print(f"{args.file}:{args.line} already carries {ALLOW_MARKER} — nothing to do.")
+        return 0
+    date = _dt.date.today().isoformat()
+    body = lines[idx].rstrip("\n")
+    nl = "\n" if lines[idx].endswith("\n") else ""
+    lines[idx] = (f"{body} <!-- {ALLOW_MARKER} — restored {date}: "
+                  f"{args.reason} -->{nl}")
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.writelines(lines)
+    ledger_dir = os.path.join(args.repo, ".sagrada")
+    os.makedirs(ledger_dir, exist_ok=True)
+    with open(os.path.join(ledger_dir, "restorations.jsonl"), "a",
+              encoding="utf-8") as fh:
+        fh.write(json.dumps({"date": date, "file": args.file, "line": args.line,
+                             "reason": args.reason, "text": body.strip()[:200]},
+                            sort_keys=True) + "\n")
+    print(f"restored with intent: {args.file}:{args.line}\n"
+          f"  marker added ({ALLOW_MARKER}) · decision recorded in "
+          f".sagrada/restorations.jsonl\n"
+          f"  the scanner will treat this line as a declared restoration, "
+          f"not a zombie.")
+    return 0
+
+
 def _cmd_check_action(args) -> int:
     from .preflight import check_action
     beliefs = []
@@ -326,6 +445,43 @@ def main(argv=None) -> int:
                          "with git history). Catches CI wired to the wrong directory; a "
                          "NOT SCORED repo is unmeasured, never CLEAR.")
     vt.set_defaults(func=_cmd_vitals)
+
+    rd = sub.add_parser("read",
+                        help="The staged first reading of a repo's belief history: "
+                             "what lived, what died, what walks — with the paperwork "
+                             "to acquit intentional restorations.")
+    rd.add_argument("path", nargs="?", default=None,
+                    help="Repo dir (e.g. '.'); defaults to --repo.")
+    rd.add_argument("--repo", "-r", default=".", help="Git repo to read (default: current dir).")
+    rd.add_argument("--order", choices=["exoneration-first", "reveal-first"],
+                    default="exoneration-first",
+                    help="Beat order (A/B-tested in the stranger protocol; "
+                         "default per the foundry plan).")
+    rd.add_argument("--seance", nargs="?", const=True, default=False, metavar="SESSIONS_DIR",
+                    help="Opt in to checking YOUR OWN local agent transcripts for "
+                         "restoration requests (default dir: ~/.claude/projects). "
+                         "Local only; nothing leaves the machine.")
+    rd.add_argument("--html", nargs="?", const=True, default=False, metavar="PATH",
+                    help="Drop a self-contained, script-free epitaphs file "
+                         "(default: ./epitaphs.html).")
+    rd.add_argument("--receipt", action="store_true",
+                    help="Emit signed ER1 receipts into .sagrada/receipts/.")
+    rd.add_argument("--receipt-dir", default=None, help="Where to write receipts.")
+    rd.add_argument("--strict", action="store_true",
+                    help="Exit non-zero if any undeclared revival is walking.")
+    rd.add_argument("--no-pace", action="store_true",
+                    help="No staged pacing (pacing is TTY-only anyway).")
+    rd.set_defaults(func=_cmd_read)
+
+    rs = sub.add_parser("restore",
+                        help="Declare a restoration: mark a revived line as intentional "
+                             "(sagrada:allow + reason) and record the decision.")
+    rs.add_argument("file", help="Rule file (relative to --repo).")
+    rs.add_argument("line", type=int, help="1-based line number of the revived rule.")
+    rs.add_argument("--reason", required=True,
+                    help="Why this rule is alive again — recorded verbatim, dated.")
+    rs.add_argument("--repo", "-r", default=".", help="Repo root (default: current dir).")
+    rs.set_defaults(func=_cmd_restore)
 
     args = p.parse_args(argv)
     return args.func(args)
