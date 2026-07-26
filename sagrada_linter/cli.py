@@ -245,6 +245,49 @@ def _cmd_read(args) -> int:
     return 1 if (args.strict and walking) else 0
 
 
+def _cmd_guard(args) -> int:
+    """Install the Gate (default) or enforce it (--check)."""
+    from .gatekeeper import (WORKFLOW_YML, build_lock, check_lock,
+                             format_violations, read_lock, write_lock)
+    repo_root = args.repo
+    if _git_repo_state(repo_root) != "ok":
+        print(NOT_A_REPO_MSG, file=sys.stderr)
+        return 2
+
+    if args.check:
+        lock = read_lock(repo_root)
+        if lock is None:
+            print("no .crux/lock.json — install the gate first: "
+                  "sagrada-linter guard", file=sys.stderr)
+            return 2
+        violations, sanctioned = check_lock(repo_root, lock)
+        print(format_violations(violations, sanctioned, shadow=args.shadow))
+        if args.json:
+            print(json.dumps({"violations": violations,
+                              "sanctioned": sanctioned}, indent=2))
+        return 0 if (args.shadow or not violations) else 1
+
+    lock = build_lock(repo_root)
+    n_graves = sum(len(v) for v in lock["graves"].values())
+    path = write_lock(repo_root, lock)
+    print(f"lock written: {os.path.relpath(path, repo_root)} — "
+          f"{n_graves} grave(s) across {len(lock['graves'])} file(s), "
+          f"locked at {lock['locked_at_commit'][:8]}")
+    if args.workflow:
+        wf = os.path.join(repo_root, ".github", "workflows", "sagrada-guard.yml")
+        os.makedirs(os.path.dirname(wf), exist_ok=True)
+        if os.path.exists(wf):
+            print(f"workflow exists, untouched: {os.path.relpath(wf, repo_root)}")
+        else:
+            with open(wf, "w", encoding="utf-8") as fh:
+                fh.write(WORKFLOW_YML)
+            print(f"workflow installed (SHADOW mode): "
+                  f"{os.path.relpath(wf, repo_root)}")
+    print("enforce locally or in CI:  sagrada-linter guard --check "
+          "(add --shadow to report without failing)")
+    return 0
+
+
 def _cmd_restore(args) -> int:
     """Declare a restoration: the sanctioned way to bring a dead rule back.
     Appends the sagrada:allow marker with the reason (dated) and records the
@@ -491,6 +534,20 @@ def main(argv=None) -> int:
     rd.add_argument("--no-pace", action="store_true",
                     help="No staged pacing (pacing is TTY-only anyway).")
     rd.set_defaults(func=_cmd_read)
+
+    gd = sub.add_parser("guard",
+                        help="Install the Gate: lock every dead rule (.crux/lock.json) "
+                             "so an undeclared resurrection fails with its kill history. "
+                             "--check enforces; shadow mode reports without failing.")
+    gd.add_argument("--repo", "-r", default=".", help="Repo root (default: current dir).")
+    gd.add_argument("--check", action="store_true",
+                    help="Enforce the existing lock against the current files.")
+    gd.add_argument("--shadow", action="store_true",
+                    help="With --check: report what would fail, exit 0 (trust-building mode).")
+    gd.add_argument("--json", action="store_true", help="With --check: machine output too.")
+    gd.add_argument("--workflow", action="store_true",
+                    help="Also install .github/workflows/sagrada-guard.yml (shadow mode).")
+    gd.set_defaults(func=_cmd_guard)
 
     rs = sub.add_parser("restore",
                         help="Declare a restoration: mark a revived line as intentional "

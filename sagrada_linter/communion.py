@@ -180,6 +180,10 @@ def run_reading(*, repo_label: str, scanned: List[str], n_commits: Optional[int]
     st.beat("do not trust this reading:")
     st.beat("  every line above is recomputable from your own git history —")
     st.beat("  add --receipt, then: sagrada-linter verify <receipt> (offline, byte-for-byte)")
+    st.beat("")
+    st.beat("keep the graves kept:")
+    st.beat("  sagrada-linter guard   (locks every dead rule; an undeclared")
+    st.beat("  resurrection then fails --check with its kill history attached)")
 
 
 # ── the Epitaph file (Vigil artifact: script-free, self-contained) ──────────

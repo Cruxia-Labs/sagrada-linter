@@ -198,6 +198,36 @@ def discover_rule_files(repo_path: str) -> List[str]:
     return _candidate_rule_files(repo_path)
 
 
+def dead_rules(repo_path: str, file_path: str) -> List[dict]:
+    """Rules that were retracted at some point and are STILL absent at the
+    file's latest version — the set the Gate's lock protects. (A retracted-
+    then-revived term is a zombie, the scanner's domain; a retracted-and-
+    resting term is a grave, the lock's domain.)
+
+    Returns [{term, definition, killed_at, killed_ts}] sorted by term.
+    """
+    versions = walk_file_history(repo_path, file_path)
+    if not versions:
+        return []
+    # diff-based removals, cleared by any later re-add, minus final presence
+    retracted: Dict[str, Tuple[str, str, int]] = {}
+    prev = ""
+    for commit, ts, content in versions:
+        cur = strip_code_fences(content)
+        for ch in pair_changes(prev, cur):
+            if ch.kind == "remove" and ch.old_claim is not None:
+                retracted[ch.old_claim[0]] = (commit, ch.old_claim[1], ts)
+            elif ch.kind in ("add", "change") and ch.new_claim is not None:
+                retracted.pop(ch.new_claim[0], None)
+        prev = cur
+    final = strip_code_fences(versions[-1][2])
+    final_terms = {c[0] for c in
+                   (extract_line_claim(l) for l in final.splitlines()) if c}
+    out = [{"term": t, "definition": d, "killed_at": c, "killed_ts": ts}
+           for t, (c, d, ts) in retracted.items() if t not in final_terms]
+    return sorted(out, key=lambda r: r["term"])
+
+
 def scan_repo(repo_path: str, paths: Optional[List[str]] = None) -> Dict[str, List[ZombieEvent]]:
     """Scan the given rule files (or auto-discover them) for zombie events.
 
