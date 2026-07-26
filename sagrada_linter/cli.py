@@ -164,7 +164,7 @@ def _cmd_verify(args) -> int:
 
 
 def _cmd_read(args) -> int:
-    """The staged first reading (the Communion). Scanner + optional séance +
+    """The staged first reading (the Examen). Scanner + optional Communion +
     optional Epitaph file + optional receipts; verdicts all upstream."""
     from .communion import run_reading, write_epitaphs_html
     repo_root = args.repo
@@ -200,7 +200,7 @@ def _cmd_read(args) -> int:
             evidence = exonerate_all(events, sessions_root)
         else:
             print(f"note: no session transcripts at {sessions_root} — "
-                  "the reading proceeds without the seance.", file=sys.stderr)
+                  "the reading proceeds without the transcript witness.", file=sys.stderr)
     # in-file paperwork acquits regardless of the séance: a current line
     # carrying sagrada:allow is a DECLARED restoration (restore wrote it)
     from .communion import declared_restorations
@@ -568,7 +568,8 @@ def main(argv=None) -> int:
                     default="exoneration-first",
                     help="Beat order (A/B-tested in the stranger protocol; "
                          "default per the foundry plan).")
-    rd.add_argument("--seance", nargs="?", const=True, default=False, metavar="SESSIONS_DIR",
+    rd.add_argument("--sessions", dest="seance", nargs="?", const=True, default=False,
+                    metavar="DIR",
                     help="Opt in to checking YOUR OWN local agent transcripts for "
                          "restoration requests (default dir: ~/.claude/projects). "
                          "Local only; nothing leaves the machine.")

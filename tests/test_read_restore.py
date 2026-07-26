@@ -84,7 +84,7 @@ def test_seance_exonerates_in_read(tmp_path, capsys):
             "text": f"please put this back: {RULE[2:]}"}]},
     }) + "\n")
     rc = main(["read", str(repo), "--no-pace", "--strict",
-               "--seance", str(tmp_path / "projects")])
+               "--sessions", str(tmp_path / "projects")])
     out = capsys.readouterr().out
     assert "RESTORED WITH INTENT" in out
     assert "put this back" in out
