@@ -293,6 +293,50 @@ def _cmd_guard(args) -> int:
     return 0
 
 
+def _cmd_forget(args) -> int:
+    """Certified Forgetting v1: edit -> residue -> tombstone -> receipt."""
+    import datetime as _dt
+    from .forgetting import forget
+    repo_real = os.path.realpath(args.repo)
+    target = os.path.realpath(os.path.join(repo_real, args.file))
+    if not target.startswith(repo_real + os.sep):
+        print(f"error: '{args.file}' resolves outside {args.repo} — refusing.",
+              file=sys.stderr)
+        return 2
+    if not os.path.isfile(target):
+        print(f"cannot read {target}", file=sys.stderr)
+        return 2
+    try:
+        res = forget(repo_real, os.path.relpath(target, repo_real),
+                     args.line, args.reason,
+                     date=_dt.date.today().isoformat())
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"forgotten: {res['term']}")
+    print(f"  was: \"{res['definition'].strip()[:100]}\"")
+    print(f"  tombstone: {TOMBSTONES_DISPLAY} (reason recorded verbatim)")
+    print(f"  receipt:   {os.path.relpath(res['receipt_path'], repo_real)} "
+          f"({res['verdict']} under the new doctrine — verify offline: "
+          f"sagrada-linter verify <receipt>)")
+    if res["residue"]:
+        print(f"  residue — {len(res['residue'])} current line(s) still "
+              "reference the term (depth-1 textual; a review queue, not a "
+              "closure claim):")
+        for r in res["residue"][:10]:
+            print(f"    {r['file']}:{r['line']}  {r['text'][:90]}")
+    else:
+        print("  residue: none found at depth-1 (textual references in "
+              "current rule files)")
+    print("forgetting is a maintained state: commit, then `sagrada-linter "
+          "guard` locks the grave — an undeclared return fails --check with "
+          "this kill on record.")
+    return 0
+
+
+TOMBSTONES_DISPLAY = ".sagrada/tombstones.jsonl"
+
+
 def _cmd_restore(args) -> int:
     """Declare a restoration: the sanctioned way to bring a dead rule back.
     Appends the sagrada:allow marker with the reason (dated) and records the
@@ -553,6 +597,17 @@ def main(argv=None) -> int:
     gd.add_argument("--workflow", action="store_true",
                     help="Also install .github/workflows/sagrada-guard.yml (shadow mode).")
     gd.set_defaults(func=_cmd_guard)
+
+    fg = sub.add_parser("forget",
+                        help="Certified Forgetting: retract a rule WITH proof — the line "
+                             "leaves the file, residue is listed, a tombstone records the "
+                             "reason, and a signed receipt seals the new doctrine.")
+    fg.add_argument("file", help="Rule file (relative to --repo).")
+    fg.add_argument("line", type=int, help="1-based line number of the rule to retract.")
+    fg.add_argument("--reason", required=True,
+                    help="Why this rule dies — recorded verbatim in the tombstone.")
+    fg.add_argument("--repo", "-r", default=".", help="Repo root (default: current dir).")
+    fg.set_defaults(func=_cmd_forget)
 
     rs = sub.add_parser("restore",
                         help="Declare a restoration: mark a revived line as intentional "
