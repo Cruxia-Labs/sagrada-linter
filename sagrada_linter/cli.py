@@ -168,7 +168,12 @@ def _cmd_read(args) -> int:
     optional Epitaph file + optional receipts; verdicts all upstream."""
     from .communion import run_reading, write_epitaphs_html
     repo_root = args.repo
-    if args.path and os.path.isdir(args.path):
+    if args.path:
+        if not os.path.isdir(args.path):
+            # a typo'd path must never silently fall back to '.' — the
+            # false-PASS discipline applies to WHICH repo was read, too
+            print(f"error: '{args.path}' is not a directory.", file=sys.stderr)
+            return 2
         repo_root = args.path
     repo_state = _git_repo_state(repo_root)
     if repo_state == "none":
@@ -223,14 +228,15 @@ def _cmd_read(args) -> int:
         receipt_note = f" · {len(written)} receipt(s) in {rdir}"
         print(f"receipts: {len(written)} written to {rdir}", file=sys.stderr)
 
-    if args.html is not False and events:
+    if args.html is not False:
+        # a clean reading also gets its artifact — the baseline card is a
+        # result, not an absence (gate finding: --html silently no-oped)
         out = args.html if isinstance(args.html, str) else os.path.join(
             os.getcwd(), "epitaphs.html")
         write_epitaphs_html(out, repo_label=os.path.basename(os.path.abspath(repo_root)),
                             events=events, evidence=evidence,
                             receipt_note=receipt_note)
-        print(f"epitaphs: {out} (self-contained, no scripts — share at will)",
-              file=sys.stderr)
+        print(f"epitaphs: {out} (self-contained, no scripts)", file=sys.stderr)
 
     from .seance import evidence_key
     walking = [e for e in events
@@ -246,7 +252,14 @@ def _cmd_restore(args) -> int:
     a rehire from a ghost."""
     import datetime as _dt
     from .scanner import ALLOW_MARKER
-    target = os.path.join(args.repo, args.file)
+    repo_real = os.path.realpath(args.repo)
+    target = os.path.realpath(os.path.join(repo_real, args.file))
+    # containment: restore may only touch files INSIDE the repo (gate
+    # finding: '../' or an absolute path could mark files elsewhere)
+    if not target.startswith(repo_real + os.sep):
+        print(f"error: '{args.file}' resolves outside {args.repo} — refusing.",
+              file=sys.stderr)
+        return 2
     try:
         lines = open(target, encoding="utf-8").read().splitlines(keepends=True)
     except OSError as exc:
@@ -261,19 +274,25 @@ def _cmd_restore(args) -> int:
         print(f"{args.file}:{args.line} already carries {ALLOW_MARKER} — nothing to do.")
         return 0
     date = _dt.date.today().isoformat()
-    body = lines[idx].rstrip("\n")
-    nl = "\n" if lines[idx].endswith("\n") else ""
-    lines[idx] = (f"{body} <!-- {ALLOW_MARKER} — restored {date}: "
-                  f"{args.reason} -->{nl}")
-    with open(target, "w", encoding="utf-8") as fh:
-        fh.writelines(lines)
-    ledger_dir = os.path.join(args.repo, ".sagrada")
+    body = lines[idx].rstrip("\r\n")
+    nl = lines[idx][len(body):]
+    # the in-file marker is an HTML comment: a reason containing '--' or
+    # '>' would break out of it; the LEDGER keeps the reason verbatim
+    reason_safe = args.reason.replace("--", "–").replace(">", "›")[:160]
+    # ledger FIRST (the paperwork), file second: a crash between the two
+    # leaves an unmarked line that still scans as walking — fail-safe —
+    # never a marked line with no decision on record (gate finding)
+    ledger_dir = os.path.join(repo_real, ".sagrada")
     os.makedirs(ledger_dir, exist_ok=True)
     with open(os.path.join(ledger_dir, "restorations.jsonl"), "a",
               encoding="utf-8") as fh:
         fh.write(json.dumps({"date": date, "file": args.file, "line": args.line,
                              "reason": args.reason, "text": body.strip()[:200]},
                             sort_keys=True) + "\n")
+    lines[idx] = (f"{body} <!-- {ALLOW_MARKER} — restored {date}: "
+                  f"{reason_safe} -->{nl}")
+    with open(target, "w", encoding="utf-8") as fh:
+        fh.writelines(lines)
     print(f"restored with intent: {args.file}:{args.line}\n"
           f"  marker added ({ALLOW_MARKER}) · decision recorded in "
           f".sagrada/restorations.jsonl\n"

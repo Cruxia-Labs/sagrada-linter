@@ -90,7 +90,11 @@ def exonerate(event: ZombieEvent, sessions_root: str,
     later) or None. Window: [retracted_ts, re_added_ts + slack]; an unknown
     re-add time (worktree pseudo-commit) opens the window to now.
     """
-    lo = _unix_to_key(event.retracted_ts) if event.retracted_ts > 0 else ""
+    # An unknown retraction time means the window has no floor: any match is
+    # then a CANDIDATE at best, never an automatic acquittal (gate finding:
+    # an empty lower bound let pre-retraction chatter exonerate).
+    window_known = event.retracted_ts > 0
+    lo = _unix_to_key(event.retracted_ts) if window_known else ""
     hi_unix = (event.re_added_ts if event.re_added_ts > 0 else int(time.time()))
     hi = _unix_to_key(hi_unix + slack_days * 86400)
 
@@ -113,8 +117,13 @@ def exonerate(event: ZombieEvent, sessions_root: str,
                 if not nl:
                     continue
                 if rule_text in nl:
+                    # full acquittal requires the USER's own words AND a
+                    # bounded window; anything less is labeled candidate
+                    # (gate findings: assistant text / floorless window)
+                    strong = window_known and role == "user"
                     hits.append(SeanceEvidence(
-                        verdict="RESTORATION", tier="verbatim", session=base,
+                        verdict="RESTORATION" if strong else "RESTORATION_CANDIDATE",
+                        tier="verbatim", session=base,
                         ts=ts, role=role, quote=line.strip()[:300], overlap=1.0))
                     continue
                 if RESTORE_VERB.search(nl):

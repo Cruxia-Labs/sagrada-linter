@@ -209,8 +209,8 @@ def write_epitaphs_html(path: str, *, repo_label: str,
 <article class="epitaph{' rest' if restored else ''}">
   <div class="term">{html.escape(e.term)}</div>
   <div class="def">&ldquo;{html.escape((e.re_added_def or '').strip()[:160])}&rdquo;</div>
-  <div class="row"><span>killed</span><span class="m">{e.retracted_at[:8]} · {_date(e.retracted_ts)}</span></div>
-  <div class="row"><span>{'returned' if restored else 'revived'}</span><span class="m">{e.re_added_at[:8]} · {_date(e.re_added_ts)}</span></div>
+  <div class="row"><span>killed</span><span class="m">{html.escape(e.retracted_at[:8])} · {_date(e.retracted_ts)}</span></div>
+  <div class="row"><span>{'returned' if restored else 'revived'}</span><span class="m">{html.escape(e.re_added_at[:8])} · {_date(e.re_added_ts)}</span></div>
   <div class="row"><span>status</span><span class="m" style="color:{state_color}">{status}</span></div>
   {seance_row}
   <div class="row"><span>where</span><span class="m">{html.escape(e.location())} · present in the file today</span></div>
