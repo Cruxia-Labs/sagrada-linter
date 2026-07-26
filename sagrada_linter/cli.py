@@ -250,9 +250,13 @@ def _cmd_guard(args) -> int:
     from .gatekeeper import (WORKFLOW_YML, build_lock, check_lock,
                              format_violations, read_lock, write_lock)
     repo_root = args.repo
-    if _git_repo_state(repo_root) != "ok":
+    state = _git_repo_state(repo_root)
+    if state == "none":
         print(NOT_A_REPO_MSG, file=sys.stderr)
         return 2
+    if state == "empty":
+        print(EMPTY_REPO_MSG)
+        return 0
 
     if args.check:
         lock = read_lock(repo_root)
@@ -261,10 +265,11 @@ def _cmd_guard(args) -> int:
                   "sagrada-linter guard", file=sys.stderr)
             return 2
         violations, sanctioned = check_lock(repo_root, lock)
-        print(format_violations(violations, sanctioned, shadow=args.shadow))
-        if args.json:
+        if args.json:  # machine mode: only JSON on stdout
             print(json.dumps({"violations": violations,
                               "sanctioned": sanctioned}, indent=2))
+        else:
+            print(format_violations(violations, sanctioned, shadow=args.shadow))
         return 0 if (args.shadow or not violations) else 1
 
     lock = build_lock(repo_root)

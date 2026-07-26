@@ -217,8 +217,16 @@ def dead_rules(repo_path: str, file_path: str) -> List[dict]:
         for ch in pair_changes(prev, cur):
             if ch.kind == "remove" and ch.old_claim is not None:
                 retracted[ch.old_claim[0]] = (commit, ch.old_claim[1], ts)
-            elif ch.kind in ("add", "change") and ch.new_claim is not None:
+            elif ch.kind == "add" and ch.new_claim is not None:
                 retracted.pop(ch.new_claim[0], None)
+            elif ch.kind == "change" and ch.new_claim is not None:
+                retracted.pop(ch.new_claim[0], None)
+                # a RENAME (old term != new term) kills the old term right
+                # here — without this, renamed-away rules never became
+                # graves (gate finding: false negatives on renames)
+                if (ch.old_claim is not None
+                        and ch.old_claim[0] != ch.new_claim[0]):
+                    retracted[ch.old_claim[0]] = (commit, ch.old_claim[1], ts)
         prev = cur
     final = strip_code_fences(versions[-1][2])
     final_terms = {c[0] for c in
