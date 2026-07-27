@@ -2,7 +2,7 @@
 
 Vendored port of the engine's ``sagrada_revise/session_adapter.py``
 (provenance: cruxia-engine @ foundry 2026-07-26; kept stdlib-only, no new
-dependencies). Reads ONLY when the user explicitly opts in (`--seance`):
+dependencies). Reads ONLY when the user explicitly opts in (`--sessions`):
 conversation logs are the user's own private record — the tool never
 searches them silently, and nothing read here ever leaves the machine.
 

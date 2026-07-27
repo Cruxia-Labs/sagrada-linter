@@ -174,7 +174,7 @@ def run_reading(*, repo_label: str, scanned: List[str], n_commits: Optional[int]
         tally += f" · {n_r} restored with intent"
     st.beat(_c(tally, "1", color))
     if not seance_used:
-        st.beat("(transcripts not consulted — add --seance to check your own"
+        st.beat("(transcripts not consulted — add --sessions to check your own"
                 " sessions for restoration requests)")
     st.beat("")
     st.beat("do not trust this reading:")

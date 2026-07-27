@@ -8,7 +8,8 @@ founder ruling and does NOT live here.
 """
 
 LEX = {
-    "experience": "Communion",          # the staged first-run reading
+    "experience": "Examen",             # the full reading — the ACT (ruled 2026-07-26)
+    "witness": "Communion",             # the transcript layer — the WITNESS
     "artifact": "Epitaph",              # the dropped single-finding card
     "artifact_plural": "Epitaphs",
     "dark_page": "the Graveyard",
