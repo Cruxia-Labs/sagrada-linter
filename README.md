@@ -1,41 +1,40 @@
 # <img src="media/cruxia-mark.svg" width="30" alt=""> Sagrada Linter
 
-**Catch the AI rules you already changed before they break your build — a local linter for your `.cursorrules`, `CLAUDE.md`, and `AGENTS.md`.**
+A linter for agent rule files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`): it reads their
+git history and reports rules that were retracted in one commit and re-added in a later one.
 
 [![CI](https://github.com/Cruxia-Labs/sagrada-linter/actions/workflows/ci.yml/badge.svg)](https://github.com/Cruxia-Labs/sagrada-linter/actions)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/LICENSE)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen)](#pre-commit)
 
-Your agent keeps acting on rules you already changed. You retract a guideline in
-`.cursorrules` / `CLAUDE.md` / `AGENTS.md`, and a few edits later it creeps back in — the
-build breaks, the agent does the thing you told it to stop doing, and you can't see why.
-These are **zombie beliefs** — dead rules walking — and they're invisible to a snapshot; they
-only exist in the *history* of your rule files.
+```console
+$ git clone https://github.com/Cruxia-Labs/sagrada-specimen && cd sagrada-specimen
+$ uvx sagrada-linter scan-history .
+2 zombie-prompt event(s) found — a rule was retracted, then re-added later:
 
-Sagrada Linter reads that history and catches them.
+  ✗ CLAUDE.md:4  tone
+      retracted 376ce593: Keep error messages plain and unfunny
+      re-added 2ba05a7d: Keep error messages plain and unfunny
 
-<p align="center"><img src="https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.1.0/media/scan_hero.gif" alt="Running sagrada-linter scan-history on a repo: it reports a rule (test_runner) that was retracted in one commit and re-added in a later one, with the file:line and both commit hashes." width="840"></p>
+  ✗ CLAUDE.md:2  deploy_gate
+      retracted e48323d1: Always run migrations manually before deploy
+      re-added 0f6c89af: Always run migrations manually before deploy
+```
 
-## Try it on your own repo (30 seconds, nothing installed)
+That is the whole idea. The specimen above is a scripted repository with known findings;
+run the same command on a repository you own (use a full clone — a shallow `--depth 1`
+clone has no history to read):
 
 ```bash
 uvx sagrada-linter scan-history .
 ```
 
-It runs over **your** git history and tells you how many zombie beliefs already happened
-in your repo — with the exact `file:line`, how long each one has been undead, and the
-commits where each rule was retracted and re-added. No install, no signup, no API key,
-nothing leaves your machine. If your rule files are already clean, it says so:
+Runs locally over your git history. No install, no signup, no API key, nothing leaves
+your machine. On a clean history:
 
 ```console
 $ uvx sagrada-linter scan-history .
 0 zombie beliefs found. Your rule files are coherent over time. ✓
-```
-
-Clean history? See it fire on your own files anyway:
-
-```bash
-uvx sagrada-linter scan-history --inject-demo CLAUDE.md
 ```
 
 ## What it actually does (and what it doesn't)
@@ -59,13 +58,14 @@ it flags something, it's because the bytes say so.
   The deterministic floor anchors on structured rules (`key: value`, `- term — definition`); it
   refuses to guess at prose rather than risk a false positive. (Measured: see [BENCHMARKS.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/BENCHMARKS.md).)
 
-This honesty is the point: the deterministic catch is small and sharp, and you can trust every
-result because the tool never pretends to know more than the diff does.
+The deterministic catch is small and sharp; every result is a diff you can open.
 
 > Not `git log | grep`. Grep finds a string; it can't tell that a rule was *retracted* and then
 > *re-asserted* across commits, pair the before/after, or tell a rewrite from a revival.
 
-## Belief-integrity score (`vitals`, v0.2.0)
+## Belief-integrity score (`vitals`) — unreleased, on `main` only
+
+*Not in the PyPI release yet; run from a checkout if you want it early.*
 
 ```sh
 sagrada-linter vitals            # 0-100 score for the current repo
