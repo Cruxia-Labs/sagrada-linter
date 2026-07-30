@@ -37,10 +37,13 @@ RECEIPTS_REL = os.path.join(".sagrada", "receipts")
 
 
 def find_residue(repo_path: str, term: str,
-                 skip: Tuple[str, int]) -> List[dict]:
+                 skip: "Tuple[str, int] | None" = None) -> List[dict]:
     """Current rule lines (across all rule files) that still reference the
     term — depth-1 TEXTUAL references, a review queue, never a closure
-    claim. ``skip`` = (file, line) of the rule being forgotten."""
+    claim. ``skip`` = (file, line) of the rule being forgotten, for scans
+    taken BEFORE the edit; pass None when scanning the post-edit file
+    (release gate F2: a stale line number after deletion could mask real
+    residue that shifted into that position)."""
     pat = re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
     # terms are normalized (hyphens->underscores); match the surface form too
     pat_surface = re.compile(
@@ -84,7 +87,10 @@ def forget(repo_path: str, file_rel: str, line_no: int, reason: str,
         fh.writelines(lines)
 
     # 2. the residue
-    residue = find_residue(repo_path, term, skip=(file_rel, line_no))
+    # F2 (release gate): the file was just edited — line numbers shifted,
+    # so the pre-edit skip tuple is stale; the forgotten line is gone,
+    # so everything found now IS residue.
+    residue = find_residue(repo_path, term)
 
     # 3. the tombstone
     row = {"date": date, "file": file_rel, "line": line_no, "term": term,

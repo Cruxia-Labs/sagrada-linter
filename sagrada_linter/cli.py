@@ -115,13 +115,21 @@ def _cmd_scan_history(args) -> int:
                           for f, evs in by_file.items()}, indent=2))
     else:
         n_scanned = None if args.inject_demo else len(scanned)
-        # N1 (release gate 2026-07-29): a shallow clone must never read clean
-        if not args.inject_demo and is_shallow_repo(repo_root):
+        # N1+F1 (release gate 2026-07-29): a shallow clone must never read
+        # clean, and even WITH findings the partial-record caveat prints to
+        # stdout (findings within the visible window are genuine — a
+        # retract->re-add pair needs its retraction visible — but no result
+        # on shallow history is ever complete).
+        shallow = not args.inject_demo and is_shallow_repo(repo_root)
+        if shallow:
             print(SHALLOW_MSG, file=sys.stderr)
             if not any(by_file.values()):
                 print("shallow history — no verdict. Nothing can be concluded "
                       "from a truncated record.")
                 return 2
+            print("PARTIAL RECORD — shallow clone; findings below are real "
+                  "but the read is incomplete. git fetch --unshallow for a "
+                  "full answer.")
         print(format_events(by_file, color=sys.stdout.isatty(), n_scanned=n_scanned))
         if not args.inject_demo:
             n_commits = _commit_count(repo_root)

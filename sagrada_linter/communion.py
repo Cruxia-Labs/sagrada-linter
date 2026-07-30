@@ -65,7 +65,12 @@ class Stage:
             # any Enter press skips the remaining pacing; the transcript is
             # identical either way (pacing is presentation, never content)
             import select
-            r, _, _ = select.select([sys.stdin], [], [], self.pace)
+            try:
+                r, _, _ = select.select([sys.stdin], [], [], self.pace)
+            except (OSError, ValueError):
+                # Windows: select() supports only sockets — pacing without skip
+                time.sleep(self.pace)
+                return
             if r:
                 try:
                     sys.stdin.readline()

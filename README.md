@@ -34,7 +34,7 @@ your machine. On a clean history:
 
 ```console
 $ uvx sagrada-linter scan-history .
-0 zombie beliefs found. Your rule files are coherent over time. ✓
+0 zombie beliefs found — 1 rule file(s) read; every retraction on record is still resting.
 ```
 
 ## What it actually does (and what it doesn't)
