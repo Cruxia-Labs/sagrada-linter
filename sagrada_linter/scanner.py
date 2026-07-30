@@ -162,6 +162,24 @@ def _record_revival(new_claim, new_line, new_line_no, commit, ts, file_path, ret
     ))
 
 
+def is_shallow_repo(repo_path: str) -> bool:
+    """A shallow clone has truncated history — there is nothing to read past
+    the cut, so a clean result there would be a false PASS. Detected, said."""
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "-C", repo_path, "rev-parse", "--is-shallow-repository"],
+            capture_output=True, text=True, timeout=10)
+        return out.stdout.strip() == "true"
+    except Exception:
+        return False
+
+
+SHALLOW_MSG = ("warning: shallow clone — git history is truncated, so this read "
+               "cannot conclude anything about rules retracted before the cut. "
+               "For a real answer: git fetch --unshallow")
+
+
 def _candidate_rule_files(repo_path: str) -> List[str]:
     """Every rule-file path that ever appeared in the repo's history (sorted, unique)."""
     try:
@@ -339,7 +357,9 @@ def format_events(by_file: Dict[str, List[ZombieEvent]], *, color: bool = False,
             return ("No rule files found to scan (looked for CLAUDE.md / .cursorrules / AGENTS.md "
                     "and friends). Nothing was checked — pass a path explicitly if your rules live "
                     "elsewhere, e.g. `sagrada-linter scan-history path/to/rules.md`.")
-        return "0 zombie beliefs found. Your rule files are coherent over time. ✓"
+        n = f"{n_scanned} rule file(s) read" if n_scanned else "rule files read"
+        return (f"0 zombie beliefs found — {n}; every retraction on record "
+                "is still resting.")
 
     lines = [amber(f"{total} zombie belief(s) found") +
              " — a dead rule was retracted, then re-added later:\n"]

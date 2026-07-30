@@ -62,7 +62,16 @@ class Stage:
     def beat(self, text: str = "") -> None:
         print(text, flush=True)
         if self.pace:
-            time.sleep(self.pace)
+            # any Enter press skips the remaining pacing; the transcript is
+            # identical either way (pacing is presentation, never content)
+            import select
+            r, _, _ = select.select([sys.stdin], [], [], self.pace)
+            if r:
+                try:
+                    sys.stdin.readline()
+                except Exception:
+                    pass
+                self.pace = 0.0
 
 
 def declared_restorations(repo_root: str,
@@ -169,7 +178,7 @@ def run_reading(*, repo_label: str, scanned: List[str], n_commits: Optional[int]
 
     n_z = len(accused)
     n_r = len(exonerated)
-    tally = f"{n_z} walking"
+    tally = f"{repo_label}: {n_z} walking"
     if n_r:
         tally += f" · {n_r} restored with intent"
     st.beat(_c(tally, "1", color))
@@ -177,13 +186,21 @@ def run_reading(*, repo_label: str, scanned: List[str], n_commits: Optional[int]
         st.beat("(transcripts not consulted — add --sessions to check your own"
                 " sessions for restoration requests)")
     st.beat("")
+    st.beat("keep the graves kept:")
+    st.beat("  sagrada-linter guard   (locks every dead rule; an undeclared")
+    st.beat("  resurrection then fails --check with its kill history attached)")
+    st.beat("")
+    # the reading ends on the verify line — nothing follows the self-doubt
     st.beat("do not trust this reading:")
     st.beat("  every line above is recomputable from your own git history —")
     st.beat("  add --receipt, then: sagrada-linter verify <receipt> (offline, byte-for-byte)")
     st.beat("")
-    st.beat("keep the graves kept:")
-    st.beat("  sagrada-linter guard   (locks every dead rule; an undeclared")
-    st.beat("  resurrection then fails --check with its kill history attached)")
+    # the paste block: the shareable unit, plain bytes, <=56 cols
+    st.beat("-- copy this ------------------------------------")
+    st.beat("$ uvx sagrada-linter read .")
+    st.beat(tally)
+    st.beat("verify offline: uvx sagrada-linter verify <receipt>")
+    st.beat("-------------------------------------------------")
 
 
 # ── the Epitaph file (Vigil artifact: script-free, self-contained) ──────────

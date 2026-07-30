@@ -46,3 +46,15 @@ the scanner; 0.2.0 is the instrument.*
 
 73 tests · Apache-2.0 · reviewed by a three-family adversarial harness
 with every finding adjudicated in the repository record.
+
+## Release-gate additions (2026-07-29)
+
+- Shallow clones never read clean: `scan-history` on truncated history warns
+  and exits 2 with no verdict rather than printing a false clean line.
+- The zero line claims only what it saw: "0 zombie beliefs found — N rule
+  file(s) read; every retraction on record is still resting."
+- The reading ends on the verify line, then a plain-bytes paste block
+  (command · tally · offline verify) — the shareable unit.
+- The tally names the repository ("specimen: 1 walking · 1 restored with
+  intent").
+- Enter skips the reading's pacing; the transcript is byte-identical either way.

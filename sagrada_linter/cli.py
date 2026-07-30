@@ -55,6 +55,7 @@ NEXT_MOVE_MSG = ("try: sagrada-linter scan-history --inject-demo (plants a zombi
 
 
 def _cmd_scan_history(args) -> int:
+    from .scanner import is_shallow_repo, SHALLOW_MSG
     targets = list(args.paths) if args.paths else []
     repo_root = args.repo
     unresolved: list = []
@@ -114,6 +115,13 @@ def _cmd_scan_history(args) -> int:
                           for f, evs in by_file.items()}, indent=2))
     else:
         n_scanned = None if args.inject_demo else len(scanned)
+        # N1 (release gate 2026-07-29): a shallow clone must never read clean
+        if not args.inject_demo and is_shallow_repo(repo_root):
+            print(SHALLOW_MSG, file=sys.stderr)
+            if not any(by_file.values()):
+                print("shallow history — no verdict. Nothing can be concluded "
+                      "from a truncated record.")
+                return 2
         print(format_events(by_file, color=sys.stdout.isatty(), n_scanned=n_scanned))
         if not args.inject_demo:
             n_commits = _commit_count(repo_root)
