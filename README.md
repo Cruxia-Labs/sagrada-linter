@@ -54,10 +54,10 @@ every retraction in 1 rule file is still resting.
 
 ## What it does (and what it doesn't)
 
-A snapshot checker reads your rules as they are *right now*. Sagrada reads how they
-*changed* — and flags one pattern that quietly breaks agents: a rule you **retracted**
-that came **back**. A merge, a stale branch, a second file nobody updated; the agent
-reads whatever text survived.
+A snapshot checker reads rules as they are *right now*. Sagrada reads how they
+*changed* — and flags one pattern that quietly breaks agents: a **retracted** rule
+that came **back**. A merge, a stale branch, a second file nobody updated; agents
+read whatever text survived.
 
 It's deterministic. Every result is a real retract→re-add in your git history, located by
 diffing consecutive versions of the file — **no fuzzy matching, no model, no guessing.**
