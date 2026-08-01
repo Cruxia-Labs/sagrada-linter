@@ -1,7 +1,8 @@
 # <img src="media/cruxia-mark.svg" width="30" alt=""> Sagrada Linter
 
-A linter for agent rule files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`): it reads their
-git history and reports rules that were retracted in one commit and re-added in a later one.
+A linter for the belief state of agent instruction files (`CLAUDE.md`, `AGENTS.md`,
+`.cursorrules`, …): it reads their git history and reports rules that were retracted
+in one commit and are back in the file today.
 
 [![CI](https://github.com/Cruxia-Labs/sagrada-linter/actions/workflows/ci.yml/badge.svg)](https://github.com/Cruxia-Labs/sagrada-linter/actions)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/LICENSE)
@@ -9,63 +10,96 @@ git history and reports rules that were retracted in one commit and re-added in 
 
 ```console
 $ git clone https://github.com/Cruxia-Labs/sagrada-specimen && cd sagrada-specimen
-$ uvx sagrada-linter scan-history .
-2 zombie-prompt event(s) found — a rule was retracted, then re-added later:
+$ uvx sagrada-linter read .
+EXAMEN — sagrada-specimen
+reading 1 rule file across 16 commits. nothing leaves this machine.
 
-  ✗ CLAUDE.md:4  tone
-      retracted 376ce593: Keep error messages plain and unfunny
-      re-added 2ba05a7d: Keep error messages plain and unfunny
+o RESTORED WITH INTENT  tone
+    "Keep error messages plain and unfunny"
+    killed   376ce593  2026-03-02
+    returned 2ba05a7d  2026-03-28  — with the decision on the books:
+    in-file · "restored 2026-04-02: the style guide never shipped"
+    not a zombie. an intentional restoration, recorded.
 
-  ✗ CLAUDE.md:2  deploy_gate
-      retracted e48323d1: Always run migrations manually before deploy
-      re-added 0f6c89af: Always run migrations manually before deploy
++ WALKING  deploy_gate
+    "Always run migrations manually before deploy"
+    killed   e48323d1  2026-02-14
+    revived  0f6c89af  2026-05-19
+    active again in CLAUDE.md:2 today · walking 73 days
+
+sagrada-specimen: 1 walking · 1 restored with intent
 ```
 
-That is the whole idea. The specimen above is a scripted repository with known findings;
-run the same command on a repository you own (use a full clone — a shallow `--depth 1`
-clone has no history to read):
+*(captured 2026-07-31 — the day count moves; the commits do not)*
+
+That is the whole idea. The specimen is a scripted repository with known findings; run
+the same command on a repository you own (use a full clone — a shallow `--depth 1`
+clone has no history to read, and the tool says so rather than printing a clean result):
 
 ```bash
-uvx sagrada-linter scan-history .
+uvx sagrada-linter read .
 ```
 
 Runs locally over your git history. No install, no signup, no API key, nothing leaves
-your machine. On a clean history:
+your machine. On a clean history it says so plainly — and a clean result is a result:
 
 ```console
-$ uvx sagrada-linter scan-history .
-0 zombie beliefs found — 1 rule file(s) read; every retraction on record is still resting.
+$ uvx sagrada-linter read .
+EXAMEN — clean-repo
+reading 1 rule file across 1 commits. nothing leaves this machine.
+
+NO REVIVED RULES FOUND
+every retraction in 1 rule file is still resting.
 ```
 
-## What it actually does (and what it doesn't)
+## What it does (and what it doesn't)
 
-The thing a normal linter can't see: **coherence over time.** A snapshot checker reads your
-rules as they are *right now*. Sagrada reads how they *changed* — and flags the one pattern
-that quietly breaks agents: a rule you **retracted** that came **back**.
+A snapshot checker reads your rules as they are *right now*. Sagrada reads how they
+*changed* — and flags one pattern that quietly breaks agents: a rule you **retracted**
+that came **back**. A merge, a stale branch, a second file nobody updated; the agent
+reads whatever text survived.
 
 It's deterministic. Every result is a real retract→re-add in your git history, located by
-diffing consecutive versions of the file — **no fuzzy matching, no model, no guessing.** When
-it flags something, it's because the bytes say so.
+diffing consecutive versions of the file — **no fuzzy matching, no model, no guessing.**
+"The same rule" means the same normalized structured line; a reworded rule does not count.
 
-**What it will _not_ catch** (so you know the edges):
+**What it will _not_ catch** (the edges, stated up front):
 
-- A rule re-added with **completely different wording** in the *same* commit it was removed —
-  that reads as a rewrite, not a zombie.
-- An **intentional** reversal you actually meant. (Mark it with `sagrada:allow` to silence it.)
-- **Semantic** contradictions between two *different* rules ("always X" vs "never X"). That's
+- A rule re-added with **completely different wording** — that reads as a rewrite, not a zombie.
+- An **intentional** reversal you actually meant. Declare it — `sagrada-linter restore FILE LINE
+  --reason "…"` writes a `sagrada:allow` marker on the line — and the reading shows the decision
+  instead of an accusation (that's the `RESTORED WITH INTENT` entry above).
+- **Semantic** contradictions between two *different* rules ("always X" vs "never X"). That is
   a fuzzier problem; it is **not** part of the deterministic check and never fails your build.
-- **Imperative free-prose** rules with no `key: value` shape (e.g. `- Use type annotations`).
-  The deterministic floor anchors on structured rules (`key: value`, `- term — definition`); it
-  refuses to guess at prose rather than risk a false positive. (Measured: see [BENCHMARKS.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/BENCHMARKS.md).)
-
-The deterministic catch is small and sharp; every result is a diff you can open.
+- **Imperative free-prose** rules with no structure (e.g. `- Use type annotations`). The
+  deterministic floor anchors on structured rules (`key: value`, `- term — definition`); it
+  refuses to guess at prose rather than risk a false positive. (Measured: see
+  [BENCHMARKS.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/BENCHMARKS.md).)
 
 > Not `git log | grep`. Grep finds a string; it can't tell that a rule was *retracted* and then
 > *re-asserted* across commits, pair the before/after, or tell a rewrite from a revival.
 
-## Belief-integrity score (`vitals`) — unreleased, on `main` only
+## The gate — `guard`
 
-*Not in the PyPI release yet; run from a checkout if you want it early.*
+The reading reports; the gate enforces. `sagrada-linter guard` writes a lock of every dead
+rule; `guard --check` then fails (exit 2) if an undeclared resurrection is present — with the
+rule's kill history in the failure text. `guard --workflow` installs the GitHub Actions
+workflow so the check runs on every PR.
+
+This repository's specimen runs the gate on itself: its
+[PR tab](https://github.com/Cruxia-Labs/sagrada-specimen/pulls) has real pull requests that
+try to bring retired rules back and fail CI with the kill history attached — and one declared
+restoration that passed.
+
+## Removal with a record — `forget`
+
+Deleting a rule line loses the reason it died. `sagrada-linter forget FILE LINE --reason "…"`
+makes the removal itself an artifact: the line is deleted, a dated tombstone row is appended
+to `.sagrada/tombstones.jsonl` (term, definition, reason, residue scan), and a signed receipt
+is written beside it. Commit all three and the retirement is on the record — `guard` then
+locks the grave.
+
+## Belief-integrity score — `vitals`
 
 ```sh
 sagrada-linter vitals            # 0-100 score for the current repo
@@ -82,29 +116,22 @@ correctly, code quality, security, or anything an LLM said — 100 means "no zom
 detectable in the record," nothing more. The GitHub Action publishes the score to the job
 summary and uploads the badge (`vitals: true`, the default).
 
-**Band names — canonical vs display.** The score falls into one of four bands. The
-*canonical* strings frozen with the method — `SOUND / WATCH / ROTTING / OVERRUN` — are what
-`--json` output, receipts, and sealed records carry, forever: every historical artifact
-recomputes byte-for-byte. What the headline and the badge *say* is the display ladder:
-
-| canonical (method, `--json`, receipts) | display (headline, badge) | meaning |
-|---|---|---|
-| `SOUND` | **CLEAR** | nothing detectable in the record — an absence-claim, not a medal |
-| `WATCH` | **EXPOSED** | at risk; attention, not yet judgment |
-| `ROTTING` | **WALKING** | dead rules are active among the living |
-| `OVERRUN` | **ROTTED** | decay complete |
-
-We renamed the display; the receipts never moved.
+**Band names — canonical vs display.** The *canonical* strings frozen with the method —
+`SOUND / WATCH / ROTTING / OVERRUN` — are what `--json` output, receipts, and sealed records
+carry, forever: every historical artifact recomputes byte-for-byte. The headline and the
+badge wear the display ladder (`CLEAR / EXPOSED / WALKING / ROTTED`). We renamed the display;
+the receipts never moved.
 
 ## Install
 
 ```bash
-uvx sagrada-linter scan-history .   # zero-install run (recommended)
+uvx sagrada-linter read .           # zero-install run (recommended)
 pipx install sagrada-linter         # persistent CLI
 pip install sagrada-linter          # into the current environment
 ```
 
 Python 3.9+. One dependency (`cryptography`). Runs fully offline.
+Verbs: `read` · `guard` · `forget` · `restore` · `scan-history` · `vitals` · `check-action` · `verify`.
 
 ## Pre-commit
 
@@ -113,14 +140,14 @@ Block a zombie before it lands. Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Cruxia-Labs/sagrada-linter
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: sagrada-linter
 ```
 
 ## GitHub Action
 
-Catch zombies on every PR, with a comment on the offending line. See
+The same check on every PR, with a comment on the offending line. See
 [docs/GITHUB_ACTION.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/docs/GITHUB_ACTION.md):
 
 ```yaml
@@ -132,23 +159,25 @@ Catch zombies on every PR, with a comment on the offending line. See
 ## Verify it yourself
 
 Every check can drop a small **receipt** (`--receipt`) into `.sagrada/receipts/` — a signed,
-chained record of exactly what was checked and what the verdict was. It's offline-verifiable:
-a stranger recomputes it byte-for-byte, in two languages, with no install and no trust in us.
+chained record (`.er1.json`) of exactly what was checked and what the verdict was. It verifies
+offline: a stranger recomputes it byte-for-byte with no install and no trust in us, in any of
+three implementations on disjoint stacks (Python, Node, browser WebCrypto — spec and golden
+vectors at [er1-spec](https://github.com/Cruxia-Labs/er1-spec)).
 
 ```bash
-sagrada-linter scan-history . --receipt
+sagrada-linter read . --receipt
 sagrada-linter verify .sagrada/receipts/*.er1.json     # Python — works from any install
 # Or the zero-dependency JS reference verifier (one file; grab it from the repo):
-#   curl -O https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.1.0/sagrada_linter/er1_verify.mjs
+#   curl -O https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.2.0/sagrada_linter/er1_verify.mjs
 node er1_verify.mjs .sagrada/receipts/*.er1.json
 ```
 
-The receipt format is **ER1** — open, and built so the verifier is the simple part: see
-[SCOPE_OF_CERTIFICATION.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/SCOPE_OF_CERTIFICATION.md) for exactly what is certified and what is not.
+See [SCOPE_OF_CERTIFICATION.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/SCOPE_OF_CERTIFICATION.md)
+for exactly what is certified and what is not.
 
 ## In your agent — decision-time receipts
 
-`scan-history` audits the past. To attest what an agent did *as it acts*, call `check_action` in your
+`read` audits the past. To attest what an agent did *as it acts*, call `check_action` in your
 loop (or from an MCP tool) **before** it runs a step: you get an `ALLOW` / `HALT` verdict **and** a
 receipt of the exact constraint state the action was taken under — recomputable offline by anyone.
 
@@ -170,14 +199,23 @@ if receipt["decision"]["verdict"] == "HALT":
 ```
 
 Or from the shell: `sagrada-linter check-action --beliefs beliefs.json --action action.json --receipt`.
-Runs locally, no network — **we never see your files**. The receipt verifies in Python or zero-dep JS,
+Runs locally, no network — **we never see your files**. The receipt verifies offline,
 so a relying party never has to trust the agent that produced it.
+
+## Status
+
+One person built this and nobody else has used it yet. A flagged rule can be one you re-added
+on purpose — declare it with `restore` and the reading shows the decision instead of an
+accusation. If it is wrong about your repository, that is exactly what we want to hear:
+[open an issue](https://github.com/Cruxia-Labs/sagrada-linter/issues) with the two commits.
 
 ## License
 
 Apache-2.0 © 2026 Cruxia (including the patent grant). Contributions welcome — see [CONTRIBUTING.md](https://github.com/Cruxia-Labs/sagrada-linter/blob/main/CONTRIBUTING.md).
 
-
 ---
 
-*A zombie belief is the smallest, most checkable case of a general problem: systems that re-assert beliefs they were told to drop. The linter catches the deterministic version of that — and nothing fuzzier. It emits an ER1 receipt so the catch is something a stranger can re-verify, not something you take on trust. It's the first verb in a family. → [Cruxia-Labs](https://github.com/Cruxia-Labs)*
+*A zombie belief is the smallest, most checkable case of a general problem: systems that
+re-assert rules they were told to drop. The linter catches the deterministic version of that —
+and nothing fuzzier — and emits a receipt so the catch is something a stranger can re-verify,
+not something you take on trust. → [Cruxia-Labs](https://github.com/Cruxia-Labs)*
