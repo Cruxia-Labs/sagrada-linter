@@ -139,7 +139,7 @@ Block a zombie before it lands. Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Cruxia-Labs/sagrada-linter
-    rev: v0.2.0
+    rev: v0.2.1
     hooks:
       - id: sagrada-linter
 ```
@@ -167,7 +167,7 @@ vectors at [er1-spec](https://github.com/Cruxia-Labs/er1-spec)).
 sagrada-linter read . --receipt
 sagrada-linter verify .sagrada/receipts/*.er1.json     # Python — works from any install
 # Or the zero-dependency JS reference verifier (one file; grab it from the repo):
-#   curl -O https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.2.0/sagrada_linter/er1_verify.mjs
+#   curl -O https://raw.githubusercontent.com/Cruxia-Labs/sagrada-linter/v0.2.1/sagrada_linter/er1_verify.mjs
 node er1_verify.mjs .sagrada/receipts/*.er1.json
 ```
 
