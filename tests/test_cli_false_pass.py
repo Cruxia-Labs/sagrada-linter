@@ -152,3 +152,56 @@ def test_receipt_filename_is_speakable(zombie_repo, capsys):
     assert len(names) == 1
     # <repo>-<file>-<ISO week>-<shortid>.er1.json
     assert re.fullmatch(r"zrepo-CLAUDE-md-\d{4}-W\d{2}-[0-9a-f]{8}\.er1\.json", names[0])
+
+
+# ── N1 (2026-08-02): shallow history must never read clean ──────────────────
+# The published 0.2.0 wheel guarded only `scan-history`; `read`, `guard
+# --check` and `vitals` all reported a clean result on a --depth 1 clone and
+# exited 0 — a false PASS on the very command every surface teaches, and one
+# that could be sealed into a signed receipt. These pin all three.
+
+def _shallow_clone(tmp_path):
+    """A real shallow clone: build a repo with history, then clone --depth 1."""
+    import subprocess
+    src = tmp_path / "src"
+    src.mkdir()
+    run = lambda *a: subprocess.run(a, cwd=str(src), capture_output=True)
+    run("git", "init", "-q")
+    run("git", "config", "user.email", "t@t"); run("git", "config", "user.name", "t")
+    rules = src / "CLAUDE.md"
+    rules.write_text("- deploy_gate — run migrations by hand\n")
+    run("git", "add", "-A"); run("git", "commit", "-qm", "add rule")
+    rules.write_text("# rules\n")
+    run("git", "add", "-A"); run("git", "commit", "-qm", "retract rule")
+    rules.write_text("- deploy_gate — run migrations by hand\n")
+    run("git", "add", "-A"); run("git", "commit", "-qm", "rule returns")
+    dst = tmp_path / "shallow"
+    subprocess.run(["git", "clone", "--depth", "1", "-q",
+                    "file://" + str(src), str(dst)], capture_output=True)
+    return dst
+
+
+def test_read_refuses_a_verdict_on_shallow_history(tmp_path, capsys):
+    from sagrada_linter.cli import main
+    dst = _shallow_clone(tmp_path)
+    code = main(["read", str(dst)])
+    out = capsys.readouterr().out
+    assert code == 2, "shallow read must not exit 0"
+    assert "no verdict" in out.lower()
+    assert "NO REVIVED RULES FOUND" not in out, "shallow must never read clean"
+
+
+def test_guard_check_refuses_on_shallow_history(tmp_path, capsys):
+    from sagrada_linter.cli import main
+    dst = _shallow_clone(tmp_path)
+    code = main(["guard", "--check", "--repo", str(dst)])
+    assert code == 2, "a gate that cannot see history must not pass"
+
+
+def test_vitals_scores_nothing_on_shallow_history(tmp_path, capsys):
+    from sagrada_linter.cli import main
+    dst = _shallow_clone(tmp_path)
+    main(["vitals", "--repo", str(dst)])
+    out = capsys.readouterr().out
+    assert "shallow" in out.lower()
+    assert "100" not in out, "a truncated record must not score a perfect grade"

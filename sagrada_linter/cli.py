@@ -8,11 +8,13 @@ import subprocess
 import sys
 
 from .scanner import (
+    SHALLOW_MSG,
     discover_rule_files,
     find_rule_files_on_disk,
     format_events,
     format_github_comment,
     inject_demo,
+    is_shallow_repo,
     scan_history_for_zombies,
 )
 from .linter_receipt import build_check_receipt, receipt_filename, write_receipt
@@ -55,7 +57,6 @@ NEXT_MOVE_MSG = ("try: sagrada-linter scan-history --inject-demo (plants a zombi
 
 
 def _cmd_scan_history(args) -> int:
-    from .scanner import is_shallow_repo, SHALLOW_MSG
     targets = list(args.paths) if args.paths else []
     repo_root = args.repo
     unresolved: list = []
@@ -207,6 +208,20 @@ def _cmd_read(args) -> int:
             by_file[f] = ev
     events = [e for evs in by_file.values() for e in evs]
 
+    # N1 (2026-08-02): the same false-PASS discipline scan-history has always
+    # had. A revival needs its retraction visible; past the cut there is no
+    # record to read, so a clean reading on truncated history is not a clean
+    # repo — it is an unread one, and it must never be sealed into a receipt.
+    shallow = is_shallow_repo(repo_root)
+    if shallow:
+        print(SHALLOW_MSG, file=sys.stderr)
+        if not events:
+            print("shallow history — no verdict. Nothing can be concluded "
+                  "from a truncated record.")
+            return 2
+        print("PARTIAL RECORD — shallow clone; findings below are real but "
+              "the read is incomplete. git fetch --unshallow for a full answer.")
+
     evidence = {}
     if args.seance is not False and events:
         from .seance import exonerate_all
@@ -273,6 +288,14 @@ def _cmd_guard(args) -> int:
     if state == "empty":
         print(EMPTY_REPO_MSG)
         return 0
+
+    if args.check and is_shallow_repo(repo_root):
+        # actions/checkout defaults to depth 1: without this, the gate passes
+        # on a record it cannot see. A gate that cannot read does not pass.
+        print(SHALLOW_MSG, file=sys.stderr)
+        print("shallow clone — the gate cannot verify a truncated record. "
+              "Use fetch-depth: 0 (or git fetch --unshallow).", file=sys.stderr)
+        return 2
 
     if args.check:
         lock = read_lock(repo_root)
@@ -440,6 +463,10 @@ def _cmd_vitals(args) -> int:
 
     paths = list(args.paths) or None
     repo_state = _git_repo_state(args.repo)
+    # a shallow clone is UNMEASURED, not healthy — same false-PASS guard the
+    # empty/non-repo cases already get (N1, 2026-08-02)
+    if repo_state == "ok" and is_shallow_repo(args.repo):
+        repo_state = "shallow"
     result = (vitals_for_repo(args.repo, paths=paths, window_days=args.window_days)
               if repo_state == "ok" else None)
     scored = bool(result and result["files_scanned"])
@@ -452,6 +479,8 @@ def _cmd_vitals(args) -> int:
             "none": "not a git repository — vitals reads committed history; "
                     "run inside a repo clone",
             "empty": "no commits yet — nothing has had a chance to die",
+            "shallow": "shallow clone — history is truncated, so nothing can "
+                       "be scored; git fetch --unshallow for a real answer",
         }.get(repo_state, "no rule files with git history found in this repo")
         not_scored = {
             "method": METHOD_VERSION,
