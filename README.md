@@ -202,6 +202,13 @@ Or from the shell: `sagrada-linter check-action --beliefs beliefs.json --action 
 Runs locally, no network — **we never see your files**. The receipt verifies offline,
 so a relying party never has to trust the agent that produced it.
 
+## The Index
+
+[beliefrotindex.com](https://beliefrotindex.com) — a weekly census of zombie beliefs in
+tracked public repos, scored with this linter under a frozen method. Named rows are
+opt-in: run the reading, then
+[self-list](https://github.com/Cruxia-Labs/sagrada-linter/issues/new?template=self-list.yml).
+
 ## Status
 
 One person built this and nobody else has used it yet. A flagged rule can be one you re-added

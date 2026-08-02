@@ -1,0 +1,40 @@
+name: Add my repo to the Belief Rot Index
+description: Consent to a named weekly row on beliefrotindex.com — vitals score, active zombies, days walking.
+title: "self-list: OWNER/REPO"
+labels: ["self-list"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Named rows on the [Belief Rot Index](https://beliefrotindex.com) are opt-in.
+        A named row publishes the repo's vitals score, active-zombie count, and days
+        walking, re-read weekly. We verify that the requester maintains the repo
+        before listing. Consent is revocable the same way: open an issue asking to
+        be removed, and the row comes down at the next weekly read.
+  - type: input
+    id: repo
+    attributes:
+      label: Repository
+      description: Public repository, owner/name.
+      placeholder: your-org/your-repo
+    validations:
+      required: true
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Consent
+      options:
+        - label: I maintain this repository and consent to a named weekly row (vitals score, active-zombie count, days walking).
+          required: true
+  - type: checkboxes
+    id: ran
+    attributes:
+      label: The reading
+      options:
+        - label: I ran `uvx sagrada-linter read .` on a full clone of this repository.
+          required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optional)
+      description: Anything the row should carry — for example, a declared restoration to be aware of.
