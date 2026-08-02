@@ -18,7 +18,10 @@ git clone <repo> && cd <repo>
 sagrada-linter scan-history .
 ```
 
-## Corpus (June 2026)
+## Detector validation corpus (June 2026, 14 repos)
+
+This is the **precision/recall corpus** — a small hand-checkable set used to measure whether
+the detector over-fires, not a survey of how common zombie rules are.
 
 | | |
 |---|---|
@@ -26,12 +29,14 @@ sagrada-linter scan-history .
 | Repositories cloned | 13 |
 | With rule files at standard paths | 4 |
 | Rule-file revisions scanned | 43 |
-| Cross-commit zombie events found in the wild | 0 |
 
 Repos with rule files: `openai/openai-agents-python`, `browser-use/browser-use`,
-`princeton-nlp/SWE-agent`, `modelcontextprotocol/servers`. (Most repos we tried simply
-don't keep these files at standard paths yet — zombie beliefs are real but not yet common
-in well-maintained OSS.)
+`princeton-nlp/SWE-agent`, `modelcontextprotocol/servers`.
+
+**For prevalence, see the 400-repo survey** (July 2026): the top 80 by stars in each of five
+package ecosystems, 393 readable, 57 of them — 14.5% — carrying at least one rule deleted on
+the record and live in the file today. That figure is provisional: the false-positive
+labelling pass over the flagged repos is not finished, so it can move.
 
 ## Precision: 0 false positives across 43 revisions
 

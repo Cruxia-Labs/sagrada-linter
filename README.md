@@ -116,11 +116,10 @@ correctly, code quality, security, or anything an LLM said — 100 means "no zom
 detectable in the record," nothing more. The GitHub Action publishes the score to the job
 summary and uploads the badge (`vitals: true`, the default).
 
-**Band names — canonical vs display.** The *canonical* strings frozen with the method —
-`SOUND / WATCH / ROTTING / OVERRUN` — are what `--json` output, receipts, and sealed records
-carry, forever: every historical artifact recomputes byte-for-byte. The headline and the
-badge wear the display ladder (`CLEAR / EXPOSED / WALKING / ROTTED`). We renamed the display;
-the receipts never moved.
+**Band names.** A repo reads `CLEAR` or `ROTTEN`. The strings frozen with the method are an
+implementation detail of the receipt format: `--json` output and sealed records carry them
+forever so every historical artifact recomputes byte-for-byte, and the display maps over
+them. `WALKING` names a rule's state, never a repo's.
 
 ## Install
 

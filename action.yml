@@ -19,7 +19,7 @@ inputs:
     required: false
     default: "true"
   vitals:
-    description: "Also compute the 0-100 belief-integrity score (SAGRADA-VITALS-METHOD v0.1) and publish it to the job summary + a badge artifact."
+    description: "Also compute the 0-100 belief-integrity score (SAGRADA-VITALS-METHOD v0.2) and publish it to the job summary + a badge artifact."
     required: false
     default: "true"
 
@@ -66,7 +66,7 @@ runs:
       shell: bash
       run: |
         set -e
-        # Frozen method (v0.1): deterministic, record-side, offline. The badge JSON is a
+        # Frozen method (v0.2): deterministic, record-side, offline. The badge JSON is a
         # shields.io endpoint file; publish it wherever your badge points (artifact here).
         sagrada-linter vitals --badge-out "$RUNNER_TEMP/belief-badge.json" \
           | tee "$RUNNER_TEMP/sagrada-vitals.txt"
